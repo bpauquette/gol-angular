@@ -1,0 +1,111 @@
+<mat-card>
+  <mat-card-title>Options</mat-card-title>
+  <mat-card-content>
+    <mat-form-field appearance="fill">
+      <mat-label>Backend</mat-label>
+      <mat-select>
+        <mat-option value="node">Node (port 55000)</mat-option>
+        <mat-option value="java">Java (port 55001)</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="fill">
+      <mat-label>App theme</mat-label>
+      <mat-select [value]="currentTheme" (selectionChange)="onThemeChange($event.value)">
+        <mat-option *ngFor="let theme of availableThemes" [value]="theme.id">
+          {{ theme.label }}
+        </mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="fill">
+      <mat-label>Color scheme</mat-label>
+      <mat-select>
+        <mat-option value="bio">Bio</mat-option>
+        <mat-option value="classic">Classic</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-divider></mat-divider>
+    <h2>Accessibility & Compliance</h2>
+    <mat-checkbox [checked]="adaCompliance" (change)="toggleAdaCompliance($event)">
+      Enable ADA Compliance Mode
+    </mat-checkbox>
+    <mat-checkbox [checked]="adaCompliance" disabled>
+      Enable photosensitivity tester (manual)
+    </mat-checkbox>
+
+    <mat-divider></mat-divider>
+    <h2>Performance Settings</h2>
+    <mat-checkbox [checked]="showSpeedGauge" (change)="toggleShowSpeedGauge($event)">Show Speed Gauge</mat-checkbox>
+    <mat-checkbox [checked]="performanceCaps.enableFPSCap" (change)="toggleEnableFPSCap($event)">
+      Enable FPS Cap
+    </mat-checkbox>
+    <mat-form-field appearance="fill">
+      <mat-label>Max FPS</mat-label>
+      <input
+        matInput
+        type="number"
+        [value]="performanceCaps.maxFPS"
+        [disabled]="adaCompliance"
+        (input)="updateMaxFPS($event.target.value)"
+      >
+    </mat-form-field>
+
+    <mat-checkbox [checked]="performanceCaps.enableGPSCap" (change)="toggleEnableGPSCap($event)">
+      Enable GPS Cap
+    </mat-checkbox>
+    <mat-form-field appearance="fill">
+      <mat-label>Max GPS</mat-label>
+      <input
+        matInput
+        type="number"
+        [value]="performanceCaps.maxGPS"
+        [disabled]="adaCompliance"
+        (input)="updateMaxGPS($event.target.value)"
+      >
+    </mat-form-field>
+    <mat-checkbox disabled>Use Web Worker</mat-checkbox>
+
+    <mat-divider></mat-divider>
+    <h2>Interaction</h2>
+    <mat-checkbox>Confirm before clearing grid</mat-checkbox>
+    <mat-checkbox>Draw while running</mat-checkbox>
+    <mat-checkbox>Toggle Draw Mode</mat-checkbox>
+    <mat-checkbox [checked]="detectStablePopulation" (change)="toggleDetectStablePopulation($event)">
+      Detect Stable Population
+    </mat-checkbox>
+    <mat-checkbox>Enable memory telemetry (experimental)</mat-checkbox>
+    <mat-form-field appearance="fill">
+      <mat-label>Max generations in chart</mat-label>
+      <input
+        matInput
+        type="number"
+        [value]="maxChartGenerations"
+        (input)="updateMaxChartGenerations($event.target.value)"
+      >
+    </mat-form-field>
+    <mat-form-field appearance="fill">
+      <mat-label>Population window size</mat-label>
+      <input
+        matInput
+        type="number"
+        [value]="popWindowSize"
+        (input)="updatePopWindowSize($event.target.value)"
+      >
+    </mat-form-field>
+    <mat-form-field appearance="fill">
+      <mat-label>Population tolerance</mat-label>
+      <input
+        matInput
+        type="number"
+        [value]="popTolerance"
+        (input)="updatePopTolerance($event.target.value)"
+      >
+    </mat-form-field>
+    <mat-form-field appearance="fill">
+      <mat-label>Random rectangle fill (%)</mat-label>
+      <input matInput type="number" value="50">
+    </mat-form-field>
+  </mat-card-content>
+</mat-card>

@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Angular build/cache output
+dist/
+.angular/
+out-tsc/
+tmp/
+coverage/
+.ng/
+
+# Environment and local config
+.env
+.env.*
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS/editor files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,114 @@
+@import '@angular/material/prebuilt-themes/indigo-pink.css';
+
+:root,
+:root.theme-dark {
+  --gol-page-bg: #020b18;
+  --gol-page-text: #e7eef7;
+  --gol-bg-grad-start: #0a2a4b;
+  --gol-bg-grad-mid: #03162b;
+  --gol-bg-grad-end: #020b18;
+  --gol-topbar-bg: #070b11;
+  --gol-topbar-fg: #e7eef7;
+  --gol-subbar-bg: #08121f;
+  --gol-subbar-border: rgba(255, 255, 255, 0.1);
+  --gol-panel-bg: #0f1e33;
+  --gol-panel-bg-strong: #0b1626;
+  --gol-panel-border: rgba(255, 255, 255, 0.12);
+  --gol-text-primary: #e7eef7;
+  --gol-text-secondary: rgba(231, 238, 247, 0.75);
+  --gol-text-muted: rgba(231, 238, 247, 0.6);
+  --gol-engine-text: rgba(231, 238, 247, 0.95);
+  --gol-engine-label: rgba(231, 238, 247, 0.8);
+  --gol-engine-border: rgba(231, 238, 247, 0.35);
+  --gol-engine-focus: #78beff;
+  --gol-engine-panel-bg: #0f1e33;
+  --gol-engine-surface: rgba(255, 255, 255, 0.03);
+}
+
+:root.theme-light {
+  --gol-page-bg: #f5f8fc;
+  --gol-page-text: #102133;
+  --gol-bg-grad-start: #f4f8ff;
+  --gol-bg-grad-mid: #e9f1fb;
+  --gol-bg-grad-end: #dde8f6;
+  --gol-topbar-bg: #edf3fb;
+  --gol-topbar-fg: #102133;
+  --gol-subbar-bg: #e4edf9;
+  --gol-subbar-border: rgba(16, 33, 51, 0.18);
+  --gol-panel-bg: #f8fbff;
+  --gol-panel-bg-strong: #eaf2fc;
+  --gol-panel-border: rgba(16, 33, 51, 0.2);
+  --gol-text-primary: #102133;
+  --gol-text-secondary: rgba(16, 33, 51, 0.78);
+  --gol-text-muted: rgba(16, 33, 51, 0.62);
+  --gol-engine-text: #0f1f30;
+  --gol-engine-label: rgba(15, 31, 48, 0.82);
+  --gol-engine-border: rgba(15, 31, 48, 0.38);
+  --gol-engine-focus: #005fcc;
+  --gol-engine-panel-bg: #ffffff;
+  --gol-engine-surface: rgba(15, 31, 48, 0.06);
+}
+
+:root.theme-highContrast {
+  --gol-page-bg: #000000;
+  --gol-page-text: #ffffff;
+  --gol-bg-grad-start: #000000;
+  --gol-bg-grad-mid: #000000;
+  --gol-bg-grad-end: #000000;
+  --gol-topbar-bg: #000000;
+  --gol-topbar-fg: #ffffff;
+  --gol-subbar-bg: #000000;
+  --gol-subbar-border: #ffffff;
+  --gol-panel-bg: #000000;
+  --gol-panel-bg-strong: #000000;
+  --gol-panel-border: #ffffff;
+  --gol-text-primary: #ffffff;
+  --gol-text-secondary: #ffffff;
+  --gol-text-muted: #f0f0f0;
+  --gol-engine-text: #ffffff;
+  --gol-engine-label: #ffffff;
+  --gol-engine-border: #ffffff;
+  --gol-engine-focus: #00ffff;
+  --gol-engine-panel-bg: #000000;
+  --gol-engine-surface: rgba(255, 255, 255, 0.08);
+}
+
+:root.theme-oled {
+  --gol-page-bg: #000000;
+  --gol-page-text: #f4f7fb;
+  --gol-bg-grad-start: #020202;
+  --gol-bg-grad-mid: #000000;
+  --gol-bg-grad-end: #000000;
+  --gol-topbar-bg: #010101;
+  --gol-topbar-fg: #f4f7fb;
+  --gol-subbar-bg: #020202;
+  --gol-subbar-border: rgba(255, 255, 255, 0.18);
+  --gol-panel-bg: #04070b;
+  --gol-panel-bg-strong: #010101;
+  --gol-panel-border: rgba(255, 255, 255, 0.2);
+  --gol-text-primary: #f4f7fb;
+  --gol-text-secondary: rgba(244, 247, 251, 0.82);
+  --gol-text-muted: rgba(244, 247, 251, 0.7);
+  --gol-engine-text: #f4f7fb;
+  --gol-engine-label: rgba(244, 247, 251, 0.84);
+  --gol-engine-border: rgba(244, 247, 251, 0.35);
+  --gol-engine-focus: #6ec8ff;
+  --gol-engine-panel-bg: #0a0d12;
+  --gol-engine-surface: rgba(255, 255, 255, 0.05);
+}
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', 'Roboto', sans-serif;
+  background: var(--gol-page-bg);
+  color: var(--gol-page-text);
+}
+
+.mat-toolbar.mat-primary {
+  background: var(--gol-topbar-bg) !important;
+  color: var(--gol-topbar-fg) !important;
+}
+
+.mat-mdc-form-field-subscript-wrapper {
+  display: none;
+}

@@ -1,0 +1,95 @@
+<div class="palette-dialog">
+  <div class="palette-header">
+    <div class="palette-title">Shape Palette</div>
+    <button mat-icon-button (click)="close()"><mat-icon>close</mat-icon></button>
+  </div>
+
+  <div class="palette-search">
+    <mat-form-field appearance="fill" class="palette-search-field">
+      <mat-label>Search shapes</mat-label>
+      <input matInput [(ngModel)]="query" (ngModelChange)="onQueryChange($event)" placeholder="Type a name or keyword">
+    </mat-form-field>
+    <button mat-stroked-button class="palette-clear" (click)="clearQuery()" [disabled]="!query">Clear</button>
+    <div class="palette-search-meta">
+      {{ total }} results
+    </div>
+  </div>
+
+  <div class="palette-recent" *ngIf="recentShapes?.length">
+    <div class="palette-recent-header">
+      <span>Recent</span>
+      <span class="palette-recent-sub">Quick access to your last shapes</span>
+    </div>
+    <div class="palette-recent-list">
+      <button
+        class="palette-recent-item"
+        *ngFor="let shape of recentShapes; trackBy: trackByName"
+        (click)="select(shape)"
+        (dblclick)="useRecent(shape)"
+      >
+        <div class="preview-shell" [class.loading]="!isHydrated(shape)">
+          <app-shape-preview [cells]="shape.cells" [width]="52" [height]="52"></app-shape-preview>
+        </div>
+        <div class="palette-recent-name">{{ shape.name }}</div>
+      </button>
+    </div>
+  </div>
+
+  <div class="palette-body">
+    <div class="palette-list">
+      <div class="palette-list-header">
+        <span>Catalog</span>
+        <div class="palette-paging">
+          <button mat-icon-button (click)="prevPage()" [disabled]="pageIndex === 0"><mat-icon>chevron_left</mat-icon></button>
+          <span>{{ pageIndex + 1 }} / {{ totalPages }}</span>
+          <button mat-icon-button (click)="nextPage()" [disabled]="pageIndex >= totalPages - 1"><mat-icon>chevron_right</mat-icon></button>
+        </div>
+      </div>
+
+      <div class="palette-inline-status" *ngIf="loading">Loading shapes…</div>
+      <div class="palette-inline-status error" *ngIf="!loading && errorMessage">{{ errorMessage }}</div>
+
+      <div class="palette-list-scroll" (scroll)="onListScroll()">
+        <button
+          class="palette-item"
+          *ngFor="let shape of pagedShapes; trackBy: trackByName"
+          [class.selected]="shape === selectedShape"
+          (click)="select(shape)"
+        >
+          <div class="preview-shell" [class.loading]="!isHydrated(shape)">
+            <app-shape-preview [cells]="shape.cells" [width]="96" [height]="60"></app-shape-preview>
+          </div>
+          <div class="palette-item-meta">
+            <div class="palette-item-name">{{ shape.name }}</div>
+            <div class="palette-item-tags">
+              <span class="tag" *ngIf="getShapeCellCount(shape) !== null">C{{ getShapeCellCount(shape) }}</span>
+              <span class="tag" *ngIf="getShapeSizeLabel(shape)">{{ getShapeSizeLabel(shape) }}</span>
+              <span class="tag" *ngIf="shape.period">P{{ shape.period }}</span>
+            </div>
+          </div>
+        </button>
+      </div>
+    </div>
+
+    <div class="palette-preview" *ngIf="selectedShape as shape">
+      <div class="palette-preview-title">Preview</div>
+      <app-shape-preview [cells]="shape.cells" [width]="180" [height]="180"></app-shape-preview>
+      <div class="palette-preview-info">
+        <div><strong>Name:</strong> {{ shape.name }}</div>
+        <div><strong>Cells:</strong> {{ shapeMeta.cellCount }}</div>
+        <div><strong>Size:</strong> {{ shapeMeta.width }} × {{ shapeMeta.height }}</div>
+        <div class="palette-description" *ngIf="shape.description">
+          <strong>Description:</strong> {{ descriptionText }}
+          <button class="palette-link" *ngIf="shape.description.length > 160" (click)="toggleDescription()">
+            {{ showFullDescription ? 'Less' : 'More' }}
+          </button>
+        </div>
+        <div class="palette-muted" *ngIf="shape.id"><strong>ID:</strong> {{ shape.id }}</div>
+      </div>
+      <div class="palette-actions">
+        <button mat-stroked-button (click)="addToRecents()">Add to Recents</button>
+        <button mat-raised-button color="primary" (click)="placeSelected()">Use Shape</button>
+      </div>
+    </div>
+  </div>
+</div>

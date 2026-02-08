@@ -1,0 +1,79 @@
+<div class="auth-dialog">
+  <div class="auth-header">
+    <div class="auth-title">{{ mode === 'login' ? 'Login' : 'Create Account' }}</div>
+    <button mat-icon-button (click)="close()" aria-label="Close dialog"><mat-icon>close</mat-icon></button>
+  </div>
+
+  <div class="auth-message" *ngIf="message">{{ message }}</div>
+
+  <div class="auth-switch">
+    <button mat-stroked-button [class.active]="mode === 'login'" (click)="setMode('login')">Login</button>
+    <button mat-stroked-button [class.active]="mode === 'register'" (click)="setMode('register')">Register</button>
+  </div>
+
+  <div class="auth-body" *ngIf="mode === 'login'">
+    <mat-form-field appearance="fill" class="auth-field">
+      <mat-label>Email</mat-label>
+      <input matInput type="email" [(ngModel)]="loginEmail" [disabled]="submitting" autocomplete="email">
+    </mat-form-field>
+
+    <mat-form-field appearance="fill" class="auth-field">
+      <mat-label>Password</mat-label>
+      <input matInput [type]="showLoginPassword ? 'text' : 'password'" [(ngModel)]="loginPassword" [disabled]="submitting" autocomplete="current-password">
+      <button mat-icon-button matSuffix type="button" (click)="showLoginPassword = !showLoginPassword" [disabled]="submitting">
+        <mat-icon>{{ showLoginPassword ? 'visibility_off' : 'visibility' }}</mat-icon>
+      </button>
+    </mat-form-field>
+
+    <div class="auth-error" *ngIf="errorMsg">{{ errorMsg }}</div>
+
+    <div class="auth-actions">
+      <button mat-stroked-button (click)="close()" [disabled]="submitting">Cancel</button>
+      <button mat-raised-button color="primary" (click)="submitLogin()" [disabled]="submitting">Login</button>
+    </div>
+  </div>
+
+  <div class="auth-body" *ngIf="mode === 'register'">
+    <div class="auth-grid">
+      <mat-form-field appearance="fill" class="auth-field">
+        <mat-label>First name</mat-label>
+        <input matInput [(ngModel)]="regFirstName" [disabled]="submitting" autocomplete="given-name">
+      </mat-form-field>
+
+      <mat-form-field appearance="fill" class="auth-field">
+        <mat-label>Last name</mat-label>
+        <input matInput [(ngModel)]="regLastName" [disabled]="submitting" autocomplete="family-name">
+      </mat-form-field>
+    </div>
+
+    <mat-form-field appearance="fill" class="auth-field">
+      <mat-label>About me (optional)</mat-label>
+      <input matInput [(ngModel)]="regAboutMe" [disabled]="submitting" autocomplete="off">
+    </mat-form-field>
+
+    <mat-form-field appearance="fill" class="auth-field">
+      <mat-label>Email</mat-label>
+      <input matInput type="email" [(ngModel)]="regEmail" [disabled]="submitting" autocomplete="email">
+    </mat-form-field>
+
+    <mat-form-field appearance="fill" class="auth-field">
+      <mat-label>Password</mat-label>
+      <input matInput [type]="showRegPassword ? 'text' : 'password'" [(ngModel)]="regPassword" [disabled]="submitting" autocomplete="new-password">
+      <button mat-icon-button matSuffix type="button" (click)="showRegPassword = !showRegPassword" [disabled]="submitting">
+        <mat-icon>{{ showRegPassword ? 'visibility_off' : 'visibility' }}</mat-icon>
+      </button>
+    </mat-form-field>
+
+    <div class="auth-hint">
+      Password must be 8+ chars and include upper/lower, digit, and special character.
+    </div>
+
+    <div class="auth-error" *ngIf="errorMsg">{{ errorMsg }}</div>
+
+    <div class="auth-actions">
+      <button mat-stroked-button (click)="close()" [disabled]="submitting">Cancel</button>
+      <button mat-raised-button color="primary" (click)="submitRegister()" [disabled]="submitting">Register</button>
+    </div>
+  </div>
+</div>
+

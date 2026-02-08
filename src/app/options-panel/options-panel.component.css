@@ -1,0 +1,10 @@
+mat-card {
+  margin: 24px;
+  max-width: 600px;
+  background: var(--gol-panel-bg);
+  color: var(--gol-text-primary);
+  border: 1px solid var(--gol-panel-border);
+}
+h2 { margin-top: 16px; font-size: 1.25rem; }
+mat-form-field { width: 100%; margin-bottom: 12px; }
+mat-checkbox { margin-bottom: 8px; }
