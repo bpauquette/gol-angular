@@ -10,6 +10,10 @@ export interface ShapeItem {
   name: string;
   cells?: ShapeCell[];
   description?: string;
+  public?: boolean;
+  userId?: string;
+  createdAt?: string;
+  updatedAt?: string;
   width?: number;
   height?: number;
   population?: number;
@@ -70,7 +74,8 @@ export class ShapePaletteDialogComponent implements OnInit, OnDestroy {
       }),
       switchMap(([query, page]) =>
         this.catalog.fetchShapeNames(query, this.pageSize, page * this.pageSize).pipe(
-          catchError(() => {
+          catchError((error) => {
+            console.error('[ShapePaletteDialog] Failed to fetch shape names.', { query, page, error });
             this.errorMessage = 'Unable to reach the shapes service.';
             return of({ items: [], total: 0 });
           })

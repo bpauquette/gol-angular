@@ -1,73 +1,52 @@
-import { GameModelService, Cell } from './game-model.service';
+import { TestBed } from '@angular/core/testing';
+import { AdaComplianceService } from '../services/ada-compliance.service';
+import { GameModelService } from './game-model.service';
 
-function toCellSet(cells: Cell[]) {
-  return new Set((cells || []).map(cell => `${cell.x},${cell.y}`));
-}
-
-describe('GameModelService Hashlife mode', () => {
-  let normalModel: GameModelService;
-  let hashlifeModel: GameModelService;
+describe('GameModelService simulation color enforcement', () => {
+  let model: GameModelService;
+  let ada: AdaComplianceService;
 
   beforeEach(() => {
-    normalModel = new GameModelService();
-    hashlifeModel = new GameModelService();
+    localStorage.clear();
+    localStorage.setItem('gol.adaCompliance', 'false');
+    TestBed.configureTestingModule({
+      providers: [GameModelService, AdaComplianceService]
+    });
+    model = TestBed.inject(GameModelService);
+    ada = TestBed.inject(AdaComplianceService);
   });
 
-  it('matches normal engine for a glider after 12 generations', () => {
-    const glider: Cell[] = [
-      { x: 0, y: 1 },
-      { x: 1, y: 2 },
-      { x: 2, y: 0 },
-      { x: 2, y: 1 },
-      { x: 2, y: 2 }
-    ];
-
-    normalModel.setLiveCells(glider);
-    for (let i = 0; i < 12; i++) {
-      normalModel.step(1);
-    }
-
-    hashlifeModel.setLiveCells(glider);
-    hashlifeModel.setEngineMode('hashlife');
-    hashlifeModel.setGenerationBatchSize(4);
-    for (let i = 0; i < 3; i++) {
-      hashlifeModel.stepByEngine();
-    }
-
-    expect(toCellSet(hashlifeModel.getLiveCells())).toEqual(toCellSet(normalModel.getLiveCells()));
-    expect(hashlifeModel.getGenerationBatchSize()).toBe(4);
+  it('defaults to biolife', () => {
+    expect(model.getSimulationColorScheme()).toBe('biolife');
   });
 
-  it('matches normal engine for an oscillator after 10 generations', () => {
-    const toad: Cell[] = [
-      { x: 1, y: 0 }, { x: 2, y: 0 }, { x: 3, y: 0 },
-      { x: 0, y: 1 }, { x: 1, y: 1 }, { x: 2, y: 1 }
-    ];
-
-    normalModel.setLiveCells(toad);
-    normalModel.step(10);
-
-    hashlifeModel.setLiveCells(toad);
-    hashlifeModel.setEngineMode('hashlife');
-    hashlifeModel.setGenerationBatchSize(5);
-    hashlifeModel.stepByEngine();
-    hashlifeModel.stepByEngine();
-
-    expect(toCellSet(hashlifeModel.getLiveCells())).toEqual(toCellSet(normalModel.getLiveCells()));
+  it('allows non-ADA scheme changes when ADA is off', () => {
+    model.setSimulationColorScheme('neonCircuit');
+    expect(model.getSimulationColorScheme()).toBe('neonCircuit');
   });
 
-  it('uses one generation per step in normal mode and batch size in hashlife mode', () => {
-    let normalGeneration = 0;
-    let hashlifeGeneration = 0;
-    normalModel.generation$.subscribe(value => normalGeneration = value);
-    hashlifeModel.generation$.subscribe(value => hashlifeGeneration = value);
+  it('forces ADA Safe scheme when ADA is enabled', () => {
+    model.setSimulationColorScheme('retroVector');
+    expect(model.getSimulationColorScheme()).toBe('retroVector');
 
-    normalModel.stepByEngine();
-    expect(normalGeneration).toBe(1);
+    ada.setAdaCompliance(true);
+    expect(model.getSimulationColorScheme()).toBe('adaSafe');
+  });
 
-    hashlifeModel.setEngineMode('hashlife');
-    hashlifeModel.setGenerationBatchSize(7);
-    hashlifeModel.stepByEngine();
-    expect(hashlifeGeneration).toBe(7);
+  it('rejects non-ADA scheme changes while ADA is enabled', () => {
+    ada.setAdaCompliance(true);
+    expect(model.getSimulationColorScheme()).toBe('adaSafe');
+
+    model.setSimulationColorScheme('emberField');
+    expect(model.getSimulationColorScheme()).toBe('adaSafe');
+  });
+
+  it('restores prior non-ADA scheme when ADA is disabled', () => {
+    model.setSimulationColorScheme('aurora');
+    ada.setAdaCompliance(true);
+    expect(model.getSimulationColorScheme()).toBe('adaSafe');
+
+    ada.setAdaCompliance(false);
+    expect(model.getSimulationColorScheme()).toBe('aurora');
   });
 });

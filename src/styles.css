@@ -109,6 +109,88 @@ body {
   color: var(--gol-topbar-fg) !important;
 }
 
+.gol-root .mat-mdc-card-title,
+.gol-root .mat-mdc-card-subtitle,
+.gol-root .mat-mdc-card-content,
+.gol-root .mat-mdc-checkbox .mdc-label,
+.gol-root .mat-mdc-select-min-line,
+.gol-root .mat-mdc-form-field-icon-suffix,
+.gol-root .mat-mdc-form-field-icon-prefix {
+  color: var(--gol-text-primary) !important;
+}
+
+.gol-root .mat-mdc-form-field .mdc-text-field--filled {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+.gol-root .mat-mdc-form-field .mdc-floating-label {
+  color: var(--gol-text-secondary) !important;
+}
+
+.gol-root .mat-mdc-form-field.mat-focused .mdc-floating-label {
+  color: var(--gol-engine-focus) !important;
+}
+
+.gol-root .mat-mdc-form-field input.mat-mdc-input-element,
+.gol-root .mat-mdc-form-field textarea.mat-mdc-input-element,
+.gol-root .mat-mdc-select-value-text {
+  color: var(--gol-text-primary) !important;
+  caret-color: var(--gol-engine-focus) !important;
+}
+
+.gol-root .mat-mdc-form-field input.mat-mdc-input-element::placeholder,
+.gol-root .mat-mdc-form-field textarea.mat-mdc-input-element::placeholder {
+  color: var(--gol-text-muted) !important;
+}
+
+.gol-root .mat-mdc-select-arrow {
+  color: var(--gol-text-secondary) !important;
+}
+
+.mat-mdc-select-panel,
+.mat-mdc-menu-panel {
+  background: var(--gol-engine-panel-bg) !important;
+}
+
+.cdk-overlay-container .mat-mdc-option .mdc-list-item__primary-text,
+.cdk-overlay-container .mat-mdc-menu-item .mdc-list-item__primary-text,
+.cdk-overlay-container .mat-mdc-menu-item .mat-icon,
+.mat-mdc-option .mdc-list-item__primary-text,
+.mat-mdc-menu-item .mdc-list-item__primary-text,
+.mat-mdc-menu-item .mat-icon,
+.mat-mdc-option .mat-pseudo-checkbox {
+  color: var(--gol-text-primary) !important;
+}
+
+.cdk-overlay-container .mat-mdc-option.mat-mdc-option-active .mdc-list-item__primary-text,
+.cdk-overlay-container .mat-mdc-option.mdc-list-item--selected .mdc-list-item__primary-text,
+.mat-mdc-option.mat-mdc-option-active .mdc-list-item__primary-text,
+.mat-mdc-option.mdc-list-item--selected .mdc-list-item__primary-text {
+  color: var(--gol-engine-focus) !important;
+}
+
 .mat-mdc-form-field-subscript-wrapper {
   display: none;
+}
+
+.gol-root button:focus-visible,
+.gol-root [role="button"]:focus-visible,
+.gol-root input:focus-visible,
+.gol-root textarea:focus-visible,
+.gol-root select:focus-visible,
+.gol-root .mat-mdc-option:focus-visible,
+.gol-root .mat-mdc-menu-item:focus-visible {
+  outline: 3px solid var(--gol-engine-focus) !important;
+  outline-offset: 2px !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gol-root *,
+  .gol-root *::before,
+  .gol-root *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

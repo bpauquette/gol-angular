@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, HostListener, NgZone, OnDestroy, OnInit } from '@angular/core';
 import { Subscription, firstValueFrom, fromEvent } from 'rxjs';
 import { ToolsService, ToolOverlay } from '../model/tools.service';
 import { EngineMode, GameModelService } from '../model/game-model.service';
@@ -11,8 +11,34 @@ import { AuthDialogComponent } from '../auth/auth-dialog.component';
 import { AuthService } from '../services/auth.service';
 import { ShapeCatalogService } from '../services/shape-catalog.service';
 import { GridCatalogService, GridItem } from '../services/grid-catalog.service';
+import { AdaComplianceService } from '../services/ada-compliance.service';
+import { ShapeImportService } from '../services/shape-import.service';
+import { ScriptCatalogService, ScriptItem } from '../services/script-catalog.service';
+import {
+  ScriptLearningPanel,
+  ScriptPlaygroundService,
+  ScriptTemplate
+} from '../services/script-playground.service';
+import { GlobalShortcutsService, ShortcutTool } from '../services/global-shortcuts.service';
+import { SimulationColorSchemeService } from '../services/simulation-color-scheme.service';
 
-type ToolName = 'draw' | 'erase' | 'line' | 'rect' | 'square' | 'circle' | 'oval' | 'randomRect' | 'capture' | 'shapes' | 'toggle';
+type ToolName = ShortcutTool;
+interface HashlifeShowcasePattern {
+  id: string;
+  name: string;
+  hint: string;
+  recommendedTarget: number;
+  cells: { x: number; y: number }[];
+}
+
+interface PhotosensitivityProbeMetrics {
+  elapsedMs: number;
+  frameCount: number;
+  flashEvents: number;
+  flashRateHz: number;
+  peakChangedAreaRatio: number;
+  peakGlobalLumaDelta: number;
+}
 
 @Component({
   selector: 'app-game-of-life',
@@ -29,6 +55,34 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
   hashlifeAdvancedSinceRender = 0;
   hashlifeWorkerElapsedMs = 0;
   hashlifeWorkerUsed = true;
+  hashlifeTargetInput = '100K';
+  hashlifeLeapTarget: number | null = null;
+  hashlifeLeapEtaSeconds: number | null = null;
+  hashlifeThroughputGps = 0;
+  readonly hashlifeQuickTargets = [10_000, 100_000, 1_000_000];
+  readonly hashlifeShowcasePatterns: HashlifeShowcasePattern[] = [
+    {
+      id: 'acorn',
+      name: 'Acorn',
+      hint: 'Small seed with a long chaotic growth.',
+      recommendedTarget: 5206,
+      cells: [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 2 }, { x: 3, y: 1 }, { x: 4, y: 0 }, { x: 5, y: 0 }, { x: 6, y: 0 }]
+    },
+    {
+      id: 'r-pentomino',
+      name: 'R-pentomino',
+      hint: 'Classic long transient before stabilization.',
+      recommendedTarget: 1103,
+      cells: [{ x: 0, y: 1 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 1, y: 2 }, { x: 2, y: 0 }]
+    },
+    {
+      id: 'diehard',
+      name: 'Diehard',
+      hint: 'Famous pattern that survives for 130 generations.',
+      recommendedTarget: 130,
+      cells: [{ x: 0, y: 1 }, { x: 1, y: 1 }, { x: 1, y: 2 }, { x: 5, y: 2 }, { x: 6, y: 0 }, { x: 6, y: 2 }, { x: 7, y: 2 }]
+    }
+  ];
   checkpoints: TimelineCheckpoint[] = [];
   popHistory: number[] = [];
   maxChartGenerations = 5000;
@@ -73,6 +127,62 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
 
   isLoggedIn = false;
   authEmail: string | null = null;
+  hasDonated = false;
+
+  showImportShapeDialog = false;
+  importShapeName = 'Imported Shape';
+  importShapeDescription = '';
+  importShapeText = '';
+  importShapeUrl = '';
+  importShapePublic = false;
+  importShapeBusy = false;
+  importShapeError: string | null = null;
+
+  showHelpDialog = false;
+  showAboutDialog = false;
+  showPhotosensitivityDialog = false;
+  photosensitivityTesterEnabled = false;
+  photoTestInProgress = false;
+  photoTestResult = '';
+  private photoTestTimerId: ReturnType<typeof setTimeout> | null = null;
+  private reopenPhotosensitivityDialogAfterProbe = false;
+
+  showScriptDialog = false;
+  scriptName = 'Quick Script';
+  scriptCode = [
+    '// Script API: api.clear(), api.setCell(x,y), api.addCells([{x,y}]), api.loadRle(text)',
+    'api.clear();',
+    'api.addCells([{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 2, y: 0 }]);'
+  ].join('\n');
+  scriptOutput = '';
+  scriptError: string | null = null;
+  scriptIsPublic = false;
+  scriptsLoading = false;
+  scriptsError: string | null = null;
+  myScripts: ScriptItem[] = [];
+  selectedScriptId: string | null = null;
+  selectedScriptTemplateId: string | null = null;
+  scriptTemplates: ScriptTemplate[] = [];
+  scriptLearningPanels: ScriptLearningPanel[] = [];
+  scriptApiReference: string[] = [];
+  scriptMaxOperations = 250000;
+
+  showStatisticsDialog = false;
+  showAccountDialog = false;
+  showMyShapesDialog = false;
+  myShapesLoading = false;
+  myShapesError: string | null = null;
+  myShapes: ShapeItem[] = [];
+  selectedMyShapeId: string | null = null;
+
+  showPrivacyPolicyDialog = false;
+
+  showCaptureDialog = false;
+  captureShapeName = 'Captured Shape';
+  captureShapeDescription = '';
+  captureShapePublic = false;
+  captureShapeError: string | null = null;
+  capturedShapeCells: { x: number; y: number }[] = [];
 
   cursorCell = { x: 0, y: 0 };
   shapeCrosshair: { x: number; y: number; color?: string } | null = null;
@@ -139,6 +249,7 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
   private subscriptions = new Subscription();
   private shapeHydrationSub?: Subscription;
   private readonly recentsStorageKey = 'gol.recentShapes.v1';
+  private removeShortcutListeners: (() => void) | null = null;
 
   constructor(
     private tools: ToolsService,
@@ -147,10 +258,25 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     private dialog: MatDialog,
     private auth: AuthService,
     private shapesCatalog: ShapeCatalogService,
-    private gridsCatalog: GridCatalogService
+    private gridsCatalog: GridCatalogService,
+    private adaService: AdaComplianceService,
+    private shapeImport: ShapeImportService,
+    private scriptsCatalog: ScriptCatalogService,
+    private scriptPlayground: ScriptPlaygroundService,
+    private shortcuts: GlobalShortcutsService,
+    private simulationColorSchemes: SimulationColorSchemeService,
+    private ngZone: NgZone
   ) {}
 
   ngOnInit() {
+    this.subscriptions.add(
+      this.simulationColorSchemes.scheme$.subscribe(scheme => {
+        this.canvasCellColor = scheme.cellColor;
+        this.canvasBackgroundColor = scheme.backgroundColor;
+        this.canvasBorderColor = scheme.borderColor;
+      })
+    );
+
     this.isIphoneMitigation = this.detectIphone();
     if (this.isIphoneMitigation) {
       this.applyIphoneCanvasDefaults();
@@ -163,12 +289,22 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
       this.markInteraction();
     }
 
+    this.scriptTemplates = this.scriptPlayground.getTemplates();
+    this.scriptLearningPanels = this.scriptPlayground.getLearningPanels();
+    this.scriptApiReference = this.scriptPlayground.getApiReference();
+    if (!this.selectedScriptTemplateId && this.scriptTemplates.length > 0) {
+      this.selectedScriptTemplateId = this.scriptTemplates[0].id;
+    }
+
     this.loadRecentShapes();
     this.subscriptions.add(this.runtime.liveCells$.subscribe(cells => {
       this.liveCells = cells;
       this.refreshOverlay();
     }));
-    this.subscriptions.add(this.runtime.generation$.subscribe(gen => this.generation = gen));
+    this.subscriptions.add(this.runtime.generation$.subscribe(gen => {
+      this.generation = gen;
+      this.updateHashlifeLeapProgress();
+    }));
     this.subscriptions.add(this.runtime.engineMode$.subscribe(mode => this.engineMode = mode));
     this.subscriptions.add(this.runtime.generationBatchSize$.subscribe(size => this.generationBatchSize = size));
     this.subscriptions.add(this.runtime.hashlifeRunMode$.subscribe(mode => this.hashlifeRunMode = mode));
@@ -177,6 +313,13 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
       this.hashlifeAdvancedSinceRender = telemetry.advancedSinceRender;
       this.hashlifeWorkerElapsedMs = telemetry.workerElapsedMs;
       this.hashlifeWorkerUsed = telemetry.workerUsed;
+      if (telemetry.workerElapsedMs > 0 && telemetry.effectiveBatchSize > 0) {
+        this.hashlifeThroughputGps = Math.max(
+          0,
+          Math.floor((telemetry.effectiveBatchSize / telemetry.workerElapsedMs) * 1000)
+        );
+      }
+      this.updateHashlifeLeapProgress();
     }));
     this.subscriptions.add(this.runtime.checkpoints$.subscribe(checkpoints => {
       this.checkpoints = Array.isArray(checkpoints) ? checkpoints.slice(0, 6) : [];
@@ -184,7 +327,12 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     this.subscriptions.add(this.runtime.popHistory$.subscribe(hist => this.popHistory = Array.isArray(hist) ? hist : []));
     this.subscriptions.add(this.runtime.maxChartGenerations$.subscribe(val => this.maxChartGenerations = Number(val) || 5000));
     this.subscriptions.add(this.runtime.isRunning$.subscribe(val => this.isRunning = val));
-    this.subscriptions.add(this.runtime.adaCompliance$.subscribe(val => this.adaCompliance = val));
+    this.subscriptions.add(this.runtime.adaCompliance$.subscribe(val => {
+      this.adaCompliance = val;
+      if (!val && this.showPhotosensitivityDialog) {
+        this.closePhotosensitivityTest();
+      }
+    }));
     this.subscriptions.add(this.runtime.shapesLoading$.subscribe(val => this.shapesLoading = val));
     this.subscriptions.add(this.runtime.shapesProgress$.subscribe(val => this.shapesProgress = val));
     this.subscriptions.add(this.runtime.shapesError$.subscribe(val => this.shapesError = val));
@@ -200,16 +348,50 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     this.subscriptions.add(this.runtime.showFirstLoadWarning$.subscribe(val => this.showFirstLoadWarning = val));
     this.subscriptions.add(this.runtime.optionsOpen$.subscribe(val => this.optionsOpen = val));
     this.subscriptions.add(this.runtime.performanceCaps$.subscribe(val => this.performanceCaps = val));
+    this.subscriptions.add(this.runtime.photosensitivityTesterEnabled$.subscribe(val => this.photosensitivityTesterEnabled = val));
 
     this.subscriptions.add(this.auth.token$.subscribe(token => this.isLoggedIn = !!token));
     this.subscriptions.add(this.auth.email$.subscribe(email => this.authEmail = email));
+    this.subscriptions.add(this.auth.hasDonated$.subscribe(hasDonated => this.hasDonated = !!hasDonated));
+
+    this.removeShortcutListeners = this.shortcuts.register({
+      canHandle: () => this.canHandleGlobalShortcuts(),
+      toggleRun: () => this.toggleRun(),
+      step: () => this.step(),
+      clear: () => this.clear(),
+      openHelp: () => this.openHelpDialog(),
+      openScript: () => this.openScriptPlayground(),
+      openShapePalette: () => {
+        this.setTool('shapes');
+        this.openShapePalette();
+      },
+      toggleOptions: () => this.toggleOptions(),
+      zoomIn: () => this.zoomIn(),
+      zoomOut: () => this.zoomOut(),
+      panByCells: (dx, dy) => this.panByCells(dx, dy),
+      setTool: (tool) => this.setTool(tool)
+    });
   }
 
   ngOnDestroy() {
     this.runtime.pause();
     this.stopIphoneMitigationTimers();
     this.clearCheckpointNoticeTimer();
+    this.cancelPhotosensitivityProbe();
+    if (this.removeShortcutListeners) {
+      this.removeShortcutListeners();
+      this.removeShortcutListeners = null;
+    }
     this.subscriptions.unsubscribe();
+  }
+
+  @HostListener('window:keydown', ['$event'])
+  onWindowKeydown(event: KeyboardEvent) {
+    if (event.defaultPrevented) return;
+    if (String(event.key || '') !== 'Escape') return;
+    if (!this.closeTopmostDialog()) return;
+    event.preventDefault();
+    event.stopPropagation();
   }
 
   toggleRun() {
@@ -229,6 +411,9 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
       generation: this.generation
     });
     if (this.engineMode === normalized) return;
+    if (normalized !== 'hashlife') {
+      this.cancelHashlifeLeap(false);
+    }
     this.engineMode = normalized;
     this.runtime.setEngineMode(normalized);
   }
@@ -266,8 +451,87 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     this.onHashlifeSkipExponentChange(next);
   }
 
+  loadHashlifeShowcase(patternId: string) {
+    const pattern = this.hashlifeShowcasePatterns.find(item => item.id === patternId);
+    if (!pattern) return;
+
+    const centered = this.centerPattern(pattern.cells, 0, 0);
+    this.cancelHashlifeLeap(false);
+    this.runtime.pause();
+    this.model.setLiveCells(centered, 0);
+    this.runtime.syncNow(true);
+    this.hashlifeTargetInput = String(pattern.recommendedTarget);
+    this.showCheckpointNotice(
+      `${pattern.name} loaded. Try leaping to G${this.formatGeneration(pattern.recommendedTarget)}.`,
+      true
+    );
+    this.logUi('hashlife.showcase.load', {
+      id: pattern.id,
+      name: pattern.name,
+      cells: centered.length
+    });
+  }
+
+  startHashlifeLeap(targetGeneration?: number) {
+    const requested = typeof targetGeneration === 'number'
+      ? targetGeneration
+      : this.parseGenerationInput(this.hashlifeTargetInput);
+    if (requested === null) {
+      this.showCheckpointNotice('Enter a valid leap target like 10000, 100K, or 1M.', false);
+      return;
+    }
+
+    if (this.engineMode !== 'hashlife') {
+      this.onEngineModeChange('hashlife');
+    }
+
+    const target = Math.max(this.generation + 1, Math.floor(requested));
+    this.hashlifeLeapTarget = target;
+    this.updateHashlifeLeapProgress();
+
+    // For large leaps, bias toward speed settings so the feature feels worthwhile.
+    if (target - this.generation >= 100_000) {
+      this.onHashlifeRunModeChange('warp');
+      if (this.hashlifeSkipExponent < 11) {
+        this.onHashlifeSkipExponentChange(11);
+      }
+    }
+
+    if (!this.isRunning && !this.adaCompliance) {
+      this.runtime.start();
+    }
+
+    this.showCheckpointNotice(`Leaping toward G${this.formatGeneration(target)}.`, true);
+    this.logUi('hashlife.leap.start', {
+      target,
+      generation: this.generation,
+      runMode: this.hashlifeRunMode,
+      exponent: this.hashlifeSkipExponent
+    });
+  }
+
+  startRelativeHashlifeLeap(delta: number) {
+    const normalized = Math.max(1, Math.floor(Number(delta) || 0));
+    this.startHashlifeLeap(this.generation + normalized);
+  }
+
+  cancelHashlifeLeap(showNotice = true) {
+    if (this.hashlifeLeapTarget === null) return;
+    const target = this.hashlifeLeapTarget;
+    this.hashlifeLeapTarget = null;
+    this.hashlifeLeapEtaSeconds = null;
+    if (showNotice) {
+      this.showCheckpointNotice('Leap cancelled.', false);
+    }
+    this.logUi('hashlife.leap.cancel', {
+      target,
+      generation: this.generation
+    });
+  }
+
   restoreCheckpoint(id: number) {
     const checkpoint = this.checkpoints.find(item => item.id === id) || null;
+    this.cancelHashlifeLeap(false);
     const ok = this.runtime.restoreCheckpoint(id);
     this.logUi('checkpoint.restore', {
       id,
@@ -301,7 +565,16 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     return String(value);
   }
 
+  formatDuration(seconds: number | null) {
+    const total = Math.max(0, Math.floor(Number(seconds) || 0));
+    const mins = Math.floor(total / 60);
+    const secs = total % 60;
+    if (mins <= 0) return `${secs}s`;
+    return `${mins}m ${secs}s`;
+  }
+
   clear() {
+    this.cancelHashlifeLeap(false);
     this.runtime.clear();
   }
 
@@ -437,6 +710,7 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
       this.showSaveDialog = false;
       await this.refreshGridsList();
     } catch (err: any) {
+      console.error('[GameOfLife] Failed to save grid.', err);
       this.saveGridError = this.toUserError(err, 'Failed to save grid.');
     } finally {
       this.gridOpInFlight = false;
@@ -465,6 +739,7 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
       this.runtime.syncNow(true);
       this.showLoadDialog = false;
     } catch (err: any) {
+      console.error('[GameOfLife] Failed to load grid.', { gridId: id, err });
       this.loadGridError = this.toUserError(err, 'Failed to load grid.');
     } finally {
       this.gridOpInFlight = false;
@@ -491,6 +766,7 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
       if (this.selectedGridId === id) this.selectedGridId = null;
       await this.refreshGridsList();
     } catch (err: any) {
+      console.error('[GameOfLife] Failed to delete grid.', { gridId: id, err });
       this.gridsError = this.toUserError(err, 'Failed to delete grid.');
     } finally {
       this.gridOpInFlight = false;
@@ -504,6 +780,7 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
       const res = await firstValueFrom(this.gridsCatalog.listGrids(1, 100));
       this.grids = Array.isArray(res?.items) ? res.items : [];
     } catch (err: any) {
+      console.error('[GameOfLife] Failed to refresh grids list.', err);
       this.grids = [];
       this.gridsError = this.toUserError(err, 'Failed to load saved grids.');
     } finally {
@@ -559,6 +836,17 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     this.applyZoomAtPoint(deltaY, screenX, screenY);
   }
 
+  onPan(payload: { deltaX: number; deltaY: number }) {
+    if (!payload) return;
+    this.offsetX -= (Number(payload.deltaX) || 0) / this.cellSize;
+    this.offsetY -= (Number(payload.deltaY) || 0) / this.cellSize;
+  }
+
+  panByCells(dx: number, dy: number) {
+    this.offsetX += Math.floor(Number(dx) || 0);
+    this.offsetY += Math.floor(Number(dy) || 0);
+  }
+
   private applyZoomAtPoint(deltaY: number, screenX: number, screenY: number) {
     const prevSize = this.cellSize;
     const nextSize = deltaY > 0
@@ -611,8 +899,573 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     });
   }
 
+  openDonate() {
+    const donateUrl = this.getDonateUrl();
+    this.logUi('donate.open', { donateUrl });
+    const popup = window.open(donateUrl, '_blank', 'noopener,noreferrer');
+    if (!popup) {
+      // Fallback for popup blockers.
+      window.location.href = donateUrl;
+    }
+  }
+
+  openLifeWiki() {
+    const wikiUrl = 'https://conwaylife.com/wiki/Main_Page';
+    const popup = window.open(wikiUrl, '_blank', 'noopener,noreferrer');
+    if (!popup) {
+      window.location.href = wikiUrl;
+    }
+  }
+
+  openImportShapeDialog() {
+    this.importShapeName = 'Imported Shape';
+    this.importShapeDescription = '';
+    this.importShapeText = '';
+    this.importShapeUrl = '';
+    this.importShapePublic = false;
+    this.importShapeError = null;
+    this.showImportShapeDialog = true;
+  }
+
+  closeImportShapeDialog() {
+    this.showImportShapeDialog = false;
+    this.importShapeBusy = false;
+    this.importShapeError = null;
+  }
+
+  async handleImportShape(saveToCatalog: boolean) {
+    this.importShapeError = null;
+    this.importShapeBusy = true;
+    try {
+      let source = String(this.importShapeText || '').trim();
+      if (!source) {
+        const url = String(this.importShapeUrl || '').trim();
+        if (!url) {
+          throw new Error('Paste RLE/coordinate text or provide a URL.');
+        }
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`Unable to fetch URL: HTTP ${response.status}`);
+        }
+        source = await response.text();
+      }
+
+      const parsed = this.shapeImport.parse(source, String(this.importShapeName || '').trim() || 'Imported Shape');
+      const shape: ShapeItem = {
+        name: String(this.importShapeName || parsed.name || 'Imported Shape').trim(),
+        description: String(this.importShapeDescription || parsed.description || '').trim(),
+        cells: parsed.cells,
+        width: parsed.width,
+        height: parsed.height,
+        population: parsed.cells.length,
+        period: 1
+      };
+
+      this.selectShape(shape);
+      this.addRecentShape(shape);
+      this.showCheckpointNotice(`Imported "${shape.name}" with ${shape.cells?.length || 0} cells.`, true);
+
+      if (saveToCatalog) {
+        if (!this.auth.isLoggedIn) {
+          throw new Error('Login is required to save imported shapes.');
+        }
+        const saved = await firstValueFrom(this.shapesCatalog.saveShape({
+          name: shape.name,
+          description: shape.description,
+          cells: shape.cells || [],
+          rleText: parsed.rleText || source,
+          public: !!this.importShapePublic,
+          width: shape.width,
+          height: shape.height,
+          period: shape.period
+        }));
+        if (saved?.id) {
+          shape.id = saved.id;
+        }
+        this.showCheckpointNotice(`Saved "${shape.name}" to your shape catalog.`, true);
+      }
+
+      this.showImportShapeDialog = false;
+    } catch (error: any) {
+      console.error('[GameOfLife] Failed to import shape.', error);
+      this.importShapeError = String(error?.message || 'Import failed.');
+    } finally {
+      this.importShapeBusy = false;
+    }
+  }
+
+  openHelpDialog() {
+    this.showHelpDialog = true;
+  }
+
+  closeHelpDialog() {
+    this.showHelpDialog = false;
+  }
+
+  openAboutDialog() {
+    this.showAboutDialog = true;
+  }
+
+  closeAboutDialog() {
+    this.showAboutDialog = false;
+  }
+
+  openPhotosensitivityTest() {
+    if (!this.photosensitivityTesterEnabled) {
+      this.showCheckpointNotice('Enable photosensitivity tester in Options while ADA mode is on.', false);
+      return;
+    }
+    if (this.photoTestInProgress) {
+      this.showCheckpointNotice('Photosensitivity probe is already running in the background.', true);
+      return;
+    }
+    this.photoTestResult = '';
+    this.showPhotosensitivityDialog = true;
+  }
+
+  closePhotosensitivityTest() {
+    this.showPhotosensitivityDialog = false;
+    this.photoTestInProgress = false;
+    this.reopenPhotosensitivityDialogAfterProbe = false;
+    this.cancelPhotosensitivityProbe();
+  }
+
+  runPhotosensitivityProbe() {
+    if (this.photoTestInProgress) return;
+    const sourceCanvas = this.getPrimaryCanvasElement();
+    if (!sourceCanvas || sourceCanvas.width <= 0 || sourceCanvas.height <= 0) {
+      this.photoTestResult = 'Unable to run probe: canvas is not ready.';
+      return;
+    }
+
+    const scratch = document.createElement('canvas');
+    scratch.width = 96;
+    scratch.height = Math.max(54, Math.min(72, Math.round((sourceCanvas.height / sourceCanvas.width) * 96)));
+    const scratchCtx = scratch.getContext('2d');
+    if (!scratchCtx) {
+      this.photoTestResult = 'Unable to run probe: no canvas sampling context.';
+      return;
+    }
+
+    this.cancelPhotosensitivityProbe();
+    this.photoTestInProgress = true;
+    this.reopenPhotosensitivityDialogAfterProbe = this.showPhotosensitivityDialog;
+    this.showPhotosensitivityDialog = false;
+    this.photoTestResult = 'Passive probe is running in the background for 12 seconds. Keep using the app normally.';
+
+    const durationMs = 12000;
+    const sampleIntervalMs = 220;
+    const minFlashGapMs = 120;
+    const pixelDeltaThreshold = 0.24;
+    const changedAreaThreshold = 0.2;
+    const globalLumaThreshold = 0.1;
+
+    const startedAt = performance.now();
+    let frameCount = 0;
+    let flashEvents = 0;
+    let lastFlashAt = -Infinity;
+    let previousMeanLuma: number | null = null;
+    let peakChangedAreaRatio = 0;
+    let peakGlobalLumaDelta = 0;
+    const pixelCount = scratch.width * scratch.height;
+    let previousLumaBuffer: Float32Array | null = null;
+    let currentLumaBuffer = new Float32Array(pixelCount);
+
+    const finalize = (elapsed: number) => {
+      const measuredFps = Math.max(0, Math.round((frameCount / Math.max(1, elapsed)) * 1000));
+      const flashRateHz = flashEvents / Math.max(0.001, elapsed / 1000);
+      const metrics: PhotosensitivityProbeMetrics = {
+        elapsedMs: elapsed,
+        frameCount,
+        flashEvents,
+        flashRateHz,
+        peakChangedAreaRatio,
+        peakGlobalLumaDelta
+      };
+      const caps = this.performanceCaps;
+      this.ngZone.run(() => {
+        this.photoTestResult = this.buildPhotosensitivitySummary(metrics, measuredFps, caps);
+        this.photoTestInProgress = false;
+        this.photoTestTimerId = null;
+        if (this.reopenPhotosensitivityDialogAfterProbe && this.adaCompliance && this.photosensitivityTesterEnabled) {
+          this.showPhotosensitivityDialog = true;
+        }
+        this.reopenPhotosensitivityDialogAfterProbe = false;
+      });
+    };
+
+    const sample = () => {
+      if (!this.photoTestInProgress) {
+        this.photoTestTimerId = null;
+        return;
+      }
+
+      const sampleStartedAt = performance.now();
+      frameCount += 1;
+      scratchCtx.clearRect(0, 0, scratch.width, scratch.height);
+      scratchCtx.drawImage(sourceCanvas, 0, 0, scratch.width, scratch.height);
+      const imageData = scratchCtx.getImageData(0, 0, scratch.width, scratch.height);
+      const data = imageData.data;
+      let lumaSum = 0;
+      let changedPixels = 0;
+
+      for (let pixelIndex = 0, dataIndex = 0; pixelIndex < pixelCount; pixelIndex += 1, dataIndex += 4) {
+        const r = data[dataIndex] / 255;
+        const g = data[dataIndex + 1] / 255;
+        const b = data[dataIndex + 2] / 255;
+        const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        currentLumaBuffer[pixelIndex] = luma;
+        lumaSum += luma;
+        if (previousLumaBuffer && Math.abs(luma - previousLumaBuffer[pixelIndex]) >= pixelDeltaThreshold) {
+          changedPixels += 1;
+        }
+      }
+
+      const meanLuma = lumaSum / pixelCount;
+      if (previousLumaBuffer && previousMeanLuma !== null) {
+        const changedAreaRatio = changedPixels / pixelCount;
+        const globalLumaDelta = Math.abs(meanLuma - previousMeanLuma);
+        peakChangedAreaRatio = Math.max(peakChangedAreaRatio, changedAreaRatio);
+        peakGlobalLumaDelta = Math.max(peakGlobalLumaDelta, globalLumaDelta);
+
+        if (
+          changedAreaRatio >= changedAreaThreshold
+          && globalLumaDelta >= globalLumaThreshold
+          && sampleStartedAt - lastFlashAt >= minFlashGapMs
+        ) {
+          flashEvents += 1;
+          lastFlashAt = sampleStartedAt;
+        }
+      }
+
+      previousMeanLuma = meanLuma;
+      if (!previousLumaBuffer) {
+        previousLumaBuffer = new Float32Array(pixelCount);
+      }
+      const swap = previousLumaBuffer;
+      previousLumaBuffer = currentLumaBuffer;
+      currentLumaBuffer = swap;
+
+      const elapsed = sampleStartedAt - startedAt;
+      if (elapsed >= durationMs) {
+        finalize(elapsed);
+        return;
+      }
+
+      const sampleCostMs = performance.now() - sampleStartedAt;
+      const delayMs = Math.max(80, sampleIntervalMs - sampleCostMs);
+      this.photoTestTimerId = setTimeout(sample, delayMs);
+    };
+
+    this.ngZone.runOutsideAngular(() => {
+      sample();
+    });
+  }
+
+  applySafeVisualCaps() {
+    this.adaService.setAdaCompliance(true);
+    this.runtime.setPhotosensitivityTesterEnabled(true);
+    this.photoTestResult = 'ADA mode enabled. Run is disabled and single-step control is active.';
+  }
+
+  openScriptPlayground() {
+    this.showScriptDialog = true;
+    if (!this.selectedScriptTemplateId && this.scriptTemplates.length > 0) {
+      this.selectedScriptTemplateId = this.scriptTemplates[0].id;
+    }
+    if (!String(this.scriptCode || '').trim() && this.selectedScriptTemplateId) {
+      this.applyScriptTemplate(this.selectedScriptTemplateId);
+    }
+    void this.refreshScriptLibrary();
+  }
+
+  closeScriptPlayground() {
+    this.showScriptDialog = false;
+    this.scriptError = null;
+  }
+
+  applySelectedScriptTemplate() {
+    this.applyScriptTemplate(this.selectedScriptTemplateId);
+  }
+
+  applyLearningTemplate(panelId: string) {
+    const panel = this.scriptLearningPanels.find((item) => item.id === panelId);
+    if (!panel) return;
+    this.applyScriptTemplate(panel.templateId);
+  }
+
+  applyScriptTemplate(templateId: string | null | undefined) {
+    const template = this.scriptPlayground.findTemplate(templateId);
+    if (!template) {
+      this.scriptError = 'Template not found.';
+      return;
+    }
+    this.selectedScriptTemplateId = template.id;
+    this.scriptName = template.name;
+    this.scriptCode = template.code;
+    this.scriptError = null;
+    this.scriptOutput = `Loaded template "${template.name}".`;
+  }
+
+  async refreshScriptLibrary() {
+    this.scriptsLoading = true;
+    this.scriptsError = null;
+    try {
+      const res = this.auth.isLoggedIn
+        ? await firstValueFrom(this.scriptsCatalog.listMyScripts(1, 200))
+        : await firstValueFrom(this.scriptsCatalog.listPublicScripts(1, 200));
+      this.myScripts = Array.isArray(res?.items) ? res.items : [];
+      if (!this.selectedScriptId && this.myScripts.length > 0) {
+        this.selectedScriptId = this.myScripts[0].id;
+      }
+    } catch (error: any) {
+      console.error('[GameOfLife] Failed to refresh script library.', error);
+      this.scriptsError = String(error?.message || 'Unable to load scripts.');
+      this.myScripts = [];
+    } finally {
+      this.scriptsLoading = false;
+    }
+  }
+
+  loadScriptFromLibrary(scriptId: string) {
+    const script = this.myScripts.find((item) => item.id === scriptId);
+    if (!script) return;
+    this.selectedScriptId = script.id;
+    this.scriptName = script.name;
+    this.scriptCode = script.content;
+    this.scriptError = null;
+    this.scriptOutput = `Loaded script "${script.name}" from library.`;
+  }
+
+  async saveCurrentScript() {
+    this.scriptError = null;
+    if (!this.auth.isLoggedIn) {
+      this.openAuth('login');
+      this.scriptError = 'Login is required to save scripts.';
+      return;
+    }
+    const name = String(this.scriptName || '').trim();
+    const content = String(this.scriptCode || '').trim();
+    if (!name || !content) {
+      this.scriptError = 'Script name and content are required.';
+      return;
+    }
+    try {
+      await firstValueFrom(this.scriptsCatalog.saveScript(name, content, this.scriptIsPublic));
+      this.scriptOutput = `Saved script "${name}".`;
+      await this.refreshScriptLibrary();
+    } catch (error: any) {
+      console.error('[GameOfLife] Failed to save script.', error);
+      this.scriptError = String(error?.message || 'Failed to save script.');
+    }
+  }
+
+  async deleteSelectedScript() {
+    this.scriptError = null;
+    if (!this.selectedScriptId) return;
+    const id = this.selectedScriptId;
+    try {
+      const ok = await firstValueFrom(this.scriptsCatalog.deleteScript(id));
+      if (!ok) {
+        this.scriptError = 'Unable to delete selected script.';
+        return;
+      }
+      this.scriptOutput = 'Script deleted.';
+      this.selectedScriptId = null;
+      await this.refreshScriptLibrary();
+    } catch (error: any) {
+      console.error('[GameOfLife] Failed to delete script.', { scriptId: id, error });
+      this.scriptError = String(error?.message || 'Unable to delete selected script.');
+    }
+  }
+
+  async runScript() {
+    this.scriptError = null;
+    this.scriptOutput = '';
+    try {
+      const result = await this.scriptPlayground.runScript(this.scriptCode, {
+        model: this.model,
+        runtime: this.runtime,
+        shapeImport: this.shapeImport,
+        getGeneration: () => this.generation,
+        maxOperations: this.scriptMaxOperations
+      });
+      this.runtime.syncIntoRunLoop();
+      this.scriptOutput = `${result.output}\nGeneration: ${result.generation}\nLive Cells: ${result.liveCellCount}\nOperations: ${result.operationCount}`;
+    } catch (error: any) {
+      console.error('[GameOfLife] Script execution failed.', error);
+      this.scriptError = String(error?.message || 'Script execution failed.');
+    }
+  }
+
+  openStatisticsDialog() {
+    this.showStatisticsDialog = true;
+  }
+
+  closeStatisticsDialog() {
+    this.showStatisticsDialog = false;
+  }
+
+  openAccountDialog() {
+    if (!this.auth.isLoggedIn) {
+      this.openAuth('login');
+      return;
+    }
+    void this.auth.refreshMe();
+    this.showAccountDialog = true;
+  }
+
+  closeAccountDialog() {
+    this.showAccountDialog = false;
+  }
+
+  async openMyShapesDialog() {
+    if (!this.auth.isLoggedIn) {
+      this.openAuth('login');
+      return;
+    }
+    this.showMyShapesDialog = true;
+    await this.refreshMyShapes();
+  }
+
+  closeMyShapesDialog() {
+    this.showMyShapesDialog = false;
+  }
+
+  async refreshMyShapes() {
+    this.myShapesLoading = true;
+    this.myShapesError = null;
+    try {
+      const result = await firstValueFrom(this.shapesCatalog.listMyShapes(1, 250));
+      this.myShapes = Array.isArray(result?.items) ? result.items : [];
+      if (!this.selectedMyShapeId && this.myShapes.length > 0) {
+        this.selectedMyShapeId = String(this.myShapes[0].id || '');
+      }
+    } catch (error: any) {
+      console.error('[GameOfLife] Failed to refresh my shapes.', error);
+      this.myShapesError = String(error?.message || 'Unable to load your shapes.');
+      this.myShapes = [];
+    } finally {
+      this.myShapesLoading = false;
+    }
+  }
+
+  selectMyShape(shapeId: string) {
+    this.selectedMyShapeId = shapeId;
+  }
+
+  useSelectedMyShape() {
+    const shape = this.myShapes.find((item) => String(item.id || '') === String(this.selectedMyShapeId || ''));
+    if (!shape) return;
+    this.selectShape(shape);
+    this.addRecentShape(shape);
+    this.showCheckpointNotice(`Selected shape "${shape.name}".`, true);
+  }
+
+  loadSelectedMyShapeToGrid() {
+    const shape = this.myShapes.find((item) => String(item.id || '') === String(this.selectedMyShapeId || ''));
+    if (!shape?.cells?.length) return;
+    this.runtime.pause();
+    this.model.setLiveCells(shape.cells, 0);
+    this.runtime.syncNow(true);
+    this.showCheckpointNotice(`Loaded "${shape.name}" onto the grid.`, true);
+  }
+
+  async toggleSelectedMyShapePublic() {
+    const shape = this.myShapes.find((item) => String(item.id || '') === String(this.selectedMyShapeId || ''));
+    if (!shape?.id) return;
+    const shapeId = String(shape.id);
+    const nextPublic = !shape.public;
+    try {
+      const ok = await firstValueFrom(this.shapesCatalog.setShapePublic(shapeId, nextPublic));
+      if (!ok) {
+        this.myShapesError = 'Unable to change visibility for this shape.';
+        return;
+      }
+      await this.refreshMyShapes();
+    } catch (error: any) {
+      console.error('[GameOfLife] Failed to toggle shape visibility.', { shapeId, nextPublic, error });
+      this.myShapesError = String(error?.message || 'Unable to change visibility for this shape.');
+    }
+  }
+
+  async deleteSelectedMyShape() {
+    const shape = this.myShapes.find((item) => String(item.id || '') === String(this.selectedMyShapeId || ''));
+    if (!shape?.id) return;
+    const shapeId = String(shape.id);
+    try {
+      const ok = await firstValueFrom(this.shapesCatalog.deleteShape(shapeId));
+      if (!ok) {
+        this.myShapesError = 'Unable to delete selected shape.';
+        return;
+      }
+      this.selectedMyShapeId = null;
+      await this.refreshMyShapes();
+    } catch (error: any) {
+      console.error('[GameOfLife] Failed to delete my shape.', { shapeId, error });
+      this.myShapesError = String(error?.message || 'Unable to delete selected shape.');
+    }
+  }
+
+  openPrivacyPolicyDialog() {
+    this.showPrivacyPolicyDialog = true;
+  }
+
+  closePrivacyPolicyDialog() {
+    this.showPrivacyPolicyDialog = false;
+  }
+
+  closeCaptureDialog() {
+    this.showCaptureDialog = false;
+    this.captureShapeError = null;
+  }
+
+  async confirmCaptureShape(saveToCatalog: boolean) {
+    this.captureShapeError = null;
+    if (!this.capturedShapeCells.length) {
+      this.captureShapeError = 'No captured cells to save.';
+      return;
+    }
+    const shape: ShapeItem = {
+      name: String(this.captureShapeName || 'Captured Shape').trim(),
+      description: String(this.captureShapeDescription || '').trim(),
+      cells: this.capturedShapeCells.slice(),
+      population: this.capturedShapeCells.length
+    };
+    if (!shape.name) {
+      this.captureShapeError = 'Shape name is required.';
+      return;
+    }
+
+    try {
+      if (saveToCatalog) {
+        if (!this.auth.isLoggedIn) {
+          this.openAuth('login');
+          this.captureShapeError = 'Login is required to save captured shapes.';
+          return;
+        }
+        const saved = await firstValueFrom(this.shapesCatalog.saveShape({
+          name: shape.name,
+          description: shape.description,
+          cells: shape.cells || [],
+          public: !!this.captureShapePublic
+        }));
+        if (saved?.id) shape.id = saved.id;
+      }
+
+      this.selectShape(shape);
+      this.addRecentShape(shape);
+      this.showCaptureDialog = false;
+      this.showCheckpointNotice(`Captured shape "${shape.name}" is ready to place.`, true);
+    } catch (error: any) {
+      console.error('[GameOfLife] Failed to confirm captured shape.', error);
+      this.captureShapeError = String(error?.message || 'Unable to save captured shape.');
+    }
+  }
+
   logout() {
     this.auth.logout();
+    this.closeAccountDialog();
   }
 
   onCanvasEvent(evt: { type: 'down' | 'move' | 'up'; x: number; y: number }) {
@@ -725,7 +1578,20 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
         this.syncCells();
         mutated = true;
       } else if (this.selectedTool === 'capture') {
-        // TODO: wire capture dialog; for now just clear preview
+        const captured = this.captureRegion(sx, sy, evt.x, evt.y);
+        this.capturedShapeCells = captured;
+        if (!captured.length) {
+          this.captureShapeError = 'No live cells were found inside the captured region.';
+          this.showCaptureDialog = true;
+        } else {
+          const bounds = computeBounds(captured);
+          this.captureShapeError = null;
+          this.captureShapeName = `Captured ${bounds.width}x${bounds.height}`;
+          this.captureShapeDescription = `Captured ${captured.length} live cells at generation ${this.generation}.`;
+          this.captureShapePublic = false;
+          this.showCaptureDialog = true;
+          this.showCheckpointNotice(`Captured ${captured.length} cells. Name it and choose what to do next.`, true);
+        }
       } else if (this.selectedTool === 'shapes' && this.selectedShape?.cells?.length) {
         // Place the shape on mouse up so users can align while dragging.
         this.placeShape(evt.x, evt.y, this.selectedShape.cells);
@@ -740,16 +1606,159 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     }
   }
 
+  private canHandleGlobalShortcuts() {
+    return !this.isModalDialogOpen();
+  }
+
+  private getPrimaryCanvasElement() {
+    return document.querySelector('app-game-canvas canvas') as HTMLCanvasElement | null;
+  }
+
+  private cancelPhotosensitivityProbe() {
+    if (this.photoTestTimerId !== null) {
+      clearTimeout(this.photoTestTimerId);
+      this.photoTestTimerId = null;
+    }
+    this.reopenPhotosensitivityDialogAfterProbe = false;
+  }
+
+  private buildPhotosensitivitySummary(metrics: PhotosensitivityProbeMetrics, measuredFps: number, caps: PerformanceCaps) {
+    const comfortableCaps = caps.enableFPSCap && caps.maxFPS <= 3 && caps.enableGPSCap && caps.maxGPS <= 3;
+    const severeFlashRisk = metrics.flashRateHz > 3
+      || (metrics.peakChangedAreaRatio >= 0.35 && metrics.peakGlobalLumaDelta >= 0.16);
+    const moderateFlashRisk = metrics.flashRateHz > 2
+      || metrics.peakChangedAreaRatio >= 0.25
+      || metrics.peakGlobalLumaDelta >= 0.12;
+
+    let status = 'PASS';
+    const findings: string[] = [];
+    const guidance: string[] = [];
+
+    if (severeFlashRisk) {
+      status = 'FAIL';
+      findings.push('Detected rapid high-contrast canvas flashes beyond conservative thresholds.');
+      guidance.push('Keep ADA mode on and avoid autoplay for high-motion scenes.');
+    } else if (moderateFlashRisk) {
+      status = 'WARNING';
+      findings.push('Detected moderate flash intensity/frequency; sensitive users may be affected.');
+    } else {
+      findings.push('No strong flash-risk signature detected during this sample window.');
+    }
+
+    if (!comfortableCaps) {
+      if (status === 'PASS') status = 'WARNING';
+      guidance.push('Enable FPS/GPS caps at 3 or lower for safer playback limits.');
+    }
+    if (this.adaCompliance) {
+      guidance.push('ADA mode active: Run disabled, users control pace with Step.');
+    }
+    if (!guidance.length) {
+      guidance.push('Continue manual review with real patterns and user testing.');
+    }
+
+    const lines = [
+      `Result: ${status}`,
+      `Frames sampled: ${metrics.frameCount} in ${(metrics.elapsedMs / 1000).toFixed(1)}s (~${measuredFps} FPS).`,
+      `Estimated flash events: ${metrics.flashEvents} (${metrics.flashRateHz.toFixed(2)} / sec).`,
+      `Peak changed area: ${(metrics.peakChangedAreaRatio * 100).toFixed(1)}%.`,
+      `Peak global luminance delta: ${(metrics.peakGlobalLumaDelta * 100).toFixed(1)}%.`,
+      ...findings.map((entry) => `Finding: ${entry}`),
+      ...guidance.map((entry) => `Guidance: ${entry}`),
+      'Note: heuristic safety probe only. This is not a medical diagnostic.'
+    ];
+    return lines.join('\n');
+  }
+
+  private closeTopmostDialog() {
+    if (this.showCaptureDialog) {
+      this.closeCaptureDialog();
+      return true;
+    }
+    if (this.showPrivacyPolicyDialog) {
+      this.closePrivacyPolicyDialog();
+      return true;
+    }
+    if (this.showMyShapesDialog) {
+      this.closeMyShapesDialog();
+      return true;
+    }
+    if (this.showAccountDialog) {
+      this.closeAccountDialog();
+      return true;
+    }
+    if (this.showStatisticsDialog) {
+      this.closeStatisticsDialog();
+      return true;
+    }
+    if (this.showScriptDialog) {
+      this.closeScriptPlayground();
+      return true;
+    }
+    if (this.showPhotosensitivityDialog) {
+      this.closePhotosensitivityTest();
+      return true;
+    }
+    if (this.showAboutDialog) {
+      this.closeAboutDialog();
+      return true;
+    }
+    if (this.showHelpDialog) {
+      this.closeHelpDialog();
+      return true;
+    }
+    if (this.showImportShapeDialog) {
+      this.closeImportShapeDialog();
+      return true;
+    }
+    if (this.showFirstLoadWarning) {
+      this.closeFirstLoadWarning();
+      return true;
+    }
+    if (this.showStableDialog) {
+      this.handleKeepPaused();
+      return true;
+    }
+    if (this.showDuplicateDialog) {
+      this.closeDuplicateDialog();
+      return true;
+    }
+    if (this.showLoadDialog) {
+      this.closeLoadDialog();
+      return true;
+    }
+    if (this.showSaveDialog) {
+      this.closeSaveDialog();
+      return true;
+    }
+    return false;
+  }
+
+  private isModalDialogOpen() {
+    return this.showSaveDialog
+      || this.showLoadDialog
+      || this.showImportShapeDialog
+      || this.showHelpDialog
+      || this.showAboutDialog
+      || this.showPhotosensitivityDialog
+      || this.showScriptDialog
+      || this.showStatisticsDialog
+      || this.showAccountDialog
+      || this.showMyShapesDialog
+      || this.showPrivacyPolicyDialog
+      || this.showCaptureDialog
+      || this.showDuplicateDialog
+      || this.showStableDialog
+      || this.showFirstLoadWarning;
+  }
+
   private detectIphone() {
     const ua = navigator.userAgent || '';
     return /iPhone|iPod/i.test(ua);
   }
 
   private applyIphoneCanvasDefaults() {
-    // Slightly softer palette for smaller OLED surfaces during long sessions.
-    this.canvasCellColor = '#5FCF93';
-    this.canvasBackgroundColor = '#0A1A2A';
-    this.canvasBorderColor = '#2A3E52';
+    // Keep color scheme centralized in SimulationColorSchemeService.
+    // iPhone mitigation should not override selected/ADA-enforced palettes.
   }
 
   private startIphoneMitigationTimers() {
@@ -796,6 +1805,69 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     this.checkpointNoticeTimeoutId = null;
   }
 
+  private updateHashlifeLeapProgress() {
+    if (this.hashlifeLeapTarget === null) return;
+    const remaining = this.hashlifeLeapTarget - this.generation;
+
+    if (remaining <= 0) {
+      this.runtime.pause();
+      const reached = this.hashlifeLeapTarget;
+      this.hashlifeLeapTarget = null;
+      this.hashlifeLeapEtaSeconds = null;
+      this.showCheckpointNotice(`Reached G${this.formatGeneration(reached)}.`, true);
+      this.logUi('hashlife.leap.complete', {
+        generation: this.generation,
+        target: reached
+      });
+      return;
+    }
+
+    if (this.hashlifeThroughputGps > 0) {
+      this.hashlifeLeapEtaSeconds = Math.ceil(remaining / this.hashlifeThroughputGps);
+    } else {
+      this.hashlifeLeapEtaSeconds = null;
+    }
+  }
+
+  private parseGenerationInput(value: string) {
+    const normalized = String(value || '')
+      .trim()
+      .toUpperCase()
+      .replace(/,/g, '');
+    const match = normalized.match(/^(\d+(?:\.\d+)?)([KMB])?$/);
+    if (!match) return null;
+
+    const base = Number(match[1]);
+    if (!Number.isFinite(base) || base <= 0) return null;
+
+    const suffix = match[2] || '';
+    const multiplier = suffix === 'K'
+      ? 1_000
+      : suffix === 'M'
+        ? 1_000_000
+        : suffix === 'B'
+          ? 1_000_000_000
+          : 1;
+    return Math.floor(base * multiplier);
+  }
+
+  private centerPattern(cells: { x: number; y: number }[], centerX: number, centerY: number) {
+    if (!Array.isArray(cells) || cells.length === 0) return [];
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+    for (const cell of cells) {
+      minX = Math.min(minX, cell.x);
+      maxX = Math.max(maxX, cell.x);
+      minY = Math.min(minY, cell.y);
+      maxY = Math.max(maxY, cell.y);
+    }
+    const offsetX = centerX - Math.floor((minX + maxX) / 2);
+    const offsetY = centerY - Math.floor((minY + maxY) / 2);
+    return cells.map(cell => ({ x: cell.x + offsetX, y: cell.y + offsetY }));
+  }
+
   private markInteraction() {
     this.idleDimmed = false;
     if (this.idleTimeoutId) clearTimeout(this.idleTimeoutId);
@@ -810,6 +1882,23 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     for (const [px, py] of anchored) {
       this.model.setCellAlive(px, py, true);
     }
+  }
+
+  private captureRegion(x0: number, y0: number, x1: number, y1: number) {
+    const xMin = Math.min(x0, x1);
+    const xMax = Math.max(x0, x1);
+    const yMin = Math.min(y0, y1);
+    const yMax = Math.max(y0, y1);
+    const out: { x: number; y: number }[] = [];
+    const live = Array.isArray(this.liveCells) ? this.liveCells : [];
+    for (const cell of live) {
+      const x = Math.floor(Number(cell?.x));
+      const y = Math.floor(Number(cell?.y));
+      if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+      if (x < xMin || x > xMax || y < yMin || y > yMax) continue;
+      out.push({ x: x - xMin, y: y - yMin });
+    }
+    return out;
   }
 
   private syncCells() {
@@ -839,16 +1928,16 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
       if (Array.isArray(parsed)) {
         this.recentShapes = parsed.filter(Boolean).slice(0, 12);
       }
-    } catch {
-      // ignore parse errors
+    } catch (error) {
+      console.error('[GameOfLife] Failed to load recent shapes from storage.', error);
     }
   }
 
   private persistRecentShapes() {
     try {
       localStorage.setItem(this.recentsStorageKey, JSON.stringify(this.recentShapes.slice(0, 12)));
-    } catch {
-      // ignore storage errors
+    } catch (error) {
+      console.error('[GameOfLife] Failed to persist recent shapes to storage.', error);
     }
   }
 
@@ -883,7 +1972,11 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     if (!shape?.id) return;
     if (shape.cells?.length) return;
 
-    try { this.shapeHydrationSub?.unsubscribe(); } catch { /* ignore */ }
+    try {
+      this.shapeHydrationSub?.unsubscribe();
+    } catch (error) {
+      console.error('[GameOfLife] Failed to unsubscribe shape hydration stream.', error);
+    }
     this.shapeHydrationSub = this.shapesCatalog.fetchShapeById(String(shape.id)).subscribe((hydrated) => {
       if (this.selectedShape?.id !== shape.id) return;
       this.selectedShape = hydrated;
@@ -903,6 +1996,14 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     const width = maxX - minX + 1;
     const height = maxY - minY + 1;
     return `${width}x${height}`;
+  }
+
+  private getDonateUrl() {
+    const apiBase = this.auth.getBackendApiBase();
+    if (apiBase.endsWith('/api')) {
+      return `${apiBase.slice(0, -4)}/donate`;
+    }
+    return `${apiBase.replace(/\/+$/, '')}/donate`;
   }
 }
 
@@ -971,6 +2072,26 @@ function computeRectFill(x0: number, y0: number, x1: number, y1: number): [numbe
     }
   }
   return pts;
+}
+
+function computeBounds(cells: { x: number; y: number }[]) {
+  if (!Array.isArray(cells) || cells.length === 0) {
+    return { width: 0, height: 0 };
+  }
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  for (const cell of cells) {
+    minX = Math.min(minX, Number(cell?.x));
+    maxX = Math.max(maxX, Number(cell?.x));
+    minY = Math.min(minY, Number(cell?.y));
+    maxY = Math.max(maxY, Number(cell?.y));
+  }
+  if (!Number.isFinite(minX) || !Number.isFinite(maxX) || !Number.isFinite(minY) || !Number.isFinite(maxY)) {
+    return { width: 0, height: 0 };
+  }
+  return { width: maxX - minX + 1, height: maxY - minY + 1 };
 }
 
 function computeCircleFromBounds(x0: number, y0: number, x1: number, y1: number): [number, number][] {

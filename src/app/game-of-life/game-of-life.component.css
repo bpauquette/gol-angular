@@ -392,6 +392,50 @@
   font-size: 0.78rem;
 }
 
+.gol-hashlife-showcase,
+.gol-hashlife-leap {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.gol-hashlife-showcase-btn,
+.gol-hashlife-leap-btn {
+  color: var(--gol-text-secondary) !important;
+  border-color: var(--gol-panel-border) !important;
+  font-size: 0.74rem;
+}
+
+.gol-hashlife-leap-input {
+  min-width: 88px;
+  max-width: 120px;
+  border-radius: 7px;
+  border: 1px solid var(--gol-panel-border);
+  background: rgba(7, 20, 35, 0.8);
+  color: var(--gol-text-primary);
+  padding: 7px 9px;
+  font-size: 0.78rem;
+}
+
+.gol-hashlife-leap-input:focus {
+  outline: 1px solid var(--gol-engine-focus);
+  border-color: var(--gol-engine-focus);
+}
+
+.gol-hashlife-leap-status {
+  margin-top: 8px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px dashed var(--gol-panel-border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  color: var(--gol-text-secondary);
+  font-size: 0.76rem;
+}
+
 .gol-hashlife-checkpoints {
   margin-top: 10px;
   display: flex;
@@ -680,4 +724,231 @@
 .gol-toolstrip .mat-mdc-mini-fab {
   background: #1a2c48;
   color: #cfe1ff;
+}
+
+.gol-wide-dialog {
+  width: min(760px, calc(100% - 32px));
+}
+
+.gol-xl-dialog {
+  width: min(960px, calc(100% - 32px));
+}
+
+.gol-dialog-caption {
+  margin: 0 0 10px;
+  color: var(--gol-text-secondary);
+  font-size: 0.82rem;
+}
+
+.gol-or {
+  margin: 2px 0 8px;
+  text-align: center;
+  color: var(--gol-text-muted);
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
+}
+
+.gol-dialog-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.gol-script-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+  gap: 14px;
+}
+
+.gol-script-left,
+.gol-script-right {
+  min-width: 0;
+}
+
+.gol-script-left {
+  max-height: 70vh;
+  overflow: auto;
+  padding-right: 6px;
+}
+
+.gol-script-button {
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.gol-script-output {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(120, 190, 255, 0.35);
+  background: rgba(17, 43, 74, 0.45);
+  color: rgba(206, 227, 255, 0.95);
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+}
+
+.gol-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.gol-stat-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--gol-panel-border);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.gol-stat-item span {
+  color: var(--gol-text-secondary);
+  font-size: 0.8rem;
+}
+
+.gol-stat-item strong {
+  color: var(--gol-text-primary);
+  font-size: 0.84rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.gol-my-shapes-list {
+  max-height: 360px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.gol-my-shape-row {
+  border: 1px solid var(--gol-panel-border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.gol-my-shape-row.selected {
+  border-color: rgba(120, 190, 255, 0.55);
+  box-shadow: 0 0 0 1px rgba(120, 190, 255, 0.35) inset;
+}
+
+.gol-my-shape-name {
+  font-weight: 600;
+  color: var(--gol-text-primary);
+}
+
+.gol-my-shape-meta {
+  margin-top: 4px;
+  color: var(--gol-text-muted);
+  font-size: 0.78rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gol-my-shape-meta .dot {
+  color: rgba(231, 238, 247, 0.28);
+}
+
+.gol-learning-panels {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.gol-learning-title {
+  color: var(--gol-text-secondary);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.gol-learning-card {
+  width: 100%;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  white-space: normal;
+  border-color: rgba(120, 190, 255, 0.3) !important;
+  background: rgba(17, 43, 74, 0.42);
+  color: var(--gol-text-primary) !important;
+  padding: 9px 10px !important;
+}
+
+.gol-learning-card-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.gol-learning-card-focus,
+.gol-learning-card-try {
+  color: var(--gol-text-secondary);
+  font-size: 0.74rem;
+}
+
+.gol-script-api {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  border: 1px solid var(--gol-panel-border);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.16);
+}
+
+.gol-script-api code {
+  color: #b9dbff;
+  font-size: 0.73rem;
+  line-height: 1.4;
+}
+
+.gol-help-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.gol-help-card {
+  border: 1px solid var(--gol-panel-border);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.gol-help-card h3 {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+  color: var(--gol-text-primary);
+}
+
+.gol-help-card ul {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--gol-text-secondary);
+  font-size: 0.8rem;
+}
+
+@media (max-width: 860px) {
+  .gol-script-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .gol-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .gol-help-grid {
+    grid-template-columns: 1fr;
+  }
 }

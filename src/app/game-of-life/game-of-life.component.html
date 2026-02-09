@@ -20,34 +20,46 @@
         </mat-button-toggle-group>
       </div>
       <div class="gol-run">
-        <button mat-icon-button (click)="toggleRun()" [disabled]="adaCompliance" matTooltip="Start/Pause">
+        <button
+          mat-icon-button
+          (click)="toggleRun()"
+          [disabled]="adaCompliance"
+          matTooltip="Start/Pause"
+          aria-label="Start or pause simulation"
+        >
           <mat-icon>{{ isRunning ? 'pause' : 'play_arrow' }}</mat-icon>
         </button>
-        <button mat-icon-button (click)="step()" [disabled]="adaCompliance" matTooltip="Step">
+        <button mat-icon-button (click)="step()" matTooltip="Step" aria-label="Step simulation once">
           <mat-icon>skip_next</mat-icon>
         </button>
-        <button mat-icon-button (click)="clear()" matTooltip="Clear">
+        <button mat-icon-button (click)="clear()" matTooltip="Clear" aria-label="Clear grid">
           <mat-icon>delete_sweep</mat-icon>
         </button>
       </div>
     </div>
 
     <div class="gol-right">
-      <button mat-icon-button matTooltip="Script Playground"><mat-icon>code</mat-icon></button>
-      <button mat-icon-button matTooltip="Photosensitivity Test"><mat-icon>bug_report</mat-icon></button>
-      <button mat-icon-button matTooltip="Chart"><mat-icon>bar_chart</mat-icon></button>
-      <button mat-icon-button matTooltip="Import Shape"><mat-icon>cloud_download</mat-icon></button>
-      <button mat-icon-button matTooltip="LifeWiki"><mat-icon>language</mat-icon></button>
-      <button mat-icon-button matTooltip="Donate"><mat-icon>volunteer_activism</mat-icon></button>
-      <button mat-icon-button matTooltip="Account" [matMenuTriggerFor]="userMenu">
+      <button mat-icon-button matTooltip="Script Playground" (click)="openScriptPlayground()" aria-label="Open script playground"><mat-icon>code</mat-icon></button>
+      <button
+        *ngIf="adaCompliance"
+        mat-icon-button
+        matTooltip="Photosensitivity Test"
+        (click)="openPhotosensitivityTest()"
+        aria-label="Open photosensitivity test"
+      ><mat-icon>bug_report</mat-icon></button>
+      <button mat-icon-button matTooltip="Chart" (click)="openStatisticsDialog()" aria-label="Open statistics"><mat-icon>bar_chart</mat-icon></button>
+      <button mat-icon-button matTooltip="Import Shape" (click)="openImportShapeDialog()" aria-label="Open shape import"><mat-icon>cloud_download</mat-icon></button>
+      <button mat-icon-button matTooltip="LifeWiki" (click)="openLifeWiki()" aria-label="Open LifeWiki"><mat-icon>language</mat-icon></button>
+      <button mat-icon-button matTooltip="Donate" (click)="openDonate()" aria-label="Open donate page"><mat-icon>volunteer_activism</mat-icon></button>
+      <button mat-icon-button matTooltip="Account" [matMenuTriggerFor]="userMenu" aria-label="Open account menu">
         <mat-icon>{{ isLoggedIn ? 'lock' : 'person' }}</mat-icon>
       </button>
-      <button mat-icon-button matTooltip="More" [matMenuTriggerFor]="topMenu"><mat-icon>more_vert</mat-icon></button>
+      <button mat-icon-button matTooltip="More" [matMenuTriggerFor]="topMenu" aria-label="Open more menu"><mat-icon>more_vert</mat-icon></button>
     </div>
   </mat-toolbar>
 
   <div class="gol-engine-note" *ngIf="engineMode === 'hashlife'">
-    HashLife Observatory: simulation advances in jumps for speed, and only checkpoints are rendered.
+    HashLife Observatory: simulation advances in jumps for speed, checkpoints are rendered, and you can leap to long-range milestones.
   </div>
 
   <div class="gol-hashlife-observatory" *ngIf="engineMode === 'hashlife'">
@@ -67,7 +79,7 @@
       <div class="gol-batch">
         <span class="gol-control-label">Jump Size</span>
         <div class="gol-jump-size-row">
-          <button mat-icon-button type="button" (click)="adjustHashlifeSkipExponent(-1)" [disabled]="hashlifeSkipExponent <= 0" matTooltip="Decrease jump">
+          <button mat-icon-button type="button" (click)="adjustHashlifeSkipExponent(-1)" [disabled]="hashlifeSkipExponent <= 0" matTooltip="Decrease jump" aria-label="Decrease jump size">
             <mat-icon>remove</mat-icon>
           </button>
           <input
@@ -80,12 +92,64 @@
             (ngModelChange)="onHashlifeSkipExponentChange($event)"
             aria-label="HashLife jump size exponent"
           />
-          <button mat-icon-button type="button" (click)="adjustHashlifeSkipExponent(1)" [disabled]="hashlifeSkipExponent >= 15" matTooltip="Increase jump">
+          <button mat-icon-button type="button" (click)="adjustHashlifeSkipExponent(1)" [disabled]="hashlifeSkipExponent >= 15" matTooltip="Increase jump" aria-label="Increase jump size">
             <mat-icon>add</mat-icon>
           </button>
         </div>
         <div class="gol-jump-size-value">2^{{ hashlifeSkipExponent }} = {{ formatGeneration(hashlifeBatchSize) }} generations</div>
       </div>
+    </div>
+
+    <div class="gol-hashlife-showcase">
+      <span class="gol-control-label">Showcase</span>
+      <button
+        mat-stroked-button
+        type="button"
+        class="gol-hashlife-showcase-btn"
+        *ngFor="let pattern of hashlifeShowcasePatterns"
+        [matTooltip]="pattern.hint"
+        (click)="loadHashlifeShowcase(pattern.id)"
+      >
+        {{ pattern.name }}
+      </button>
+    </div>
+
+    <div class="gol-hashlife-leap">
+      <span class="gol-control-label">Leap To</span>
+      <input
+        class="gol-hashlife-leap-input"
+        [ngModel]="hashlifeTargetInput"
+        (ngModelChange)="hashlifeTargetInput = $event"
+        placeholder="100K"
+        aria-label="HashLife target generation"
+      />
+      <button mat-raised-button color="primary" type="button" (click)="startHashlifeLeap()">
+        Leap
+      </button>
+      <button
+        mat-stroked-button
+        type="button"
+        class="gol-hashlife-leap-btn"
+        *ngFor="let delta of hashlifeQuickTargets"
+        (click)="startRelativeHashlifeLeap(delta)"
+      >
+        +{{ formatGeneration(delta) }}
+      </button>
+      <button
+        mat-button
+        type="button"
+        *ngIf="hashlifeLeapTarget !== null"
+        (click)="cancelHashlifeLeap()"
+      >
+        Cancel
+      </button>
+    </div>
+
+    <div class="gol-hashlife-leap-status" *ngIf="hashlifeLeapTarget !== null">
+      <span>Target: G{{ formatGeneration(hashlifeLeapTarget) }}</span>
+      <span>Remaining: {{ formatGeneration(hashlifeLeapTarget - generation) }}</span>
+      <span *ngIf="hashlifeLeapEtaSeconds !== null">ETA: {{ formatDuration(hashlifeLeapEtaSeconds) }}</span>
+      <span *ngIf="hashlifeThroughputGps > 0">Throughput: {{ formatGeneration(hashlifeThroughputGps) }} gen/s</span>
     </div>
 
     <div class="gol-hashlife-stats">
@@ -118,19 +182,19 @@
   </div>
 
   <mat-menu #topMenu="matMenu">
-    <button mat-menu-item>
+    <button mat-menu-item (click)="openStatisticsDialog()">
       <mat-icon>bar_chart</mat-icon>
       <span>Chart</span>
     </button>
-    <button mat-menu-item>
+    <button mat-menu-item (click)="openImportShapeDialog()">
       <mat-icon>cloud_download</mat-icon>
       <span>Import Shape</span>
     </button>
-    <button mat-menu-item>
+    <button mat-menu-item (click)="openLifeWiki()">
       <mat-icon>language</mat-icon>
       <span>LifeWiki</span>
     </button>
-    <button mat-menu-item>
+    <button mat-menu-item (click)="openDonate()">
       <mat-icon>volunteer_activism</mat-icon>
       <span>Donate</span>
     </button>
@@ -138,11 +202,11 @@
       <mat-icon>settings</mat-icon>
       <span>Options</span>
     </button>
-    <button mat-menu-item>
+    <button mat-menu-item (click)="openHelpDialog()">
       <mat-icon>help</mat-icon>
       <span>Help</span>
     </button>
-    <button mat-menu-item>
+    <button mat-menu-item (click)="openAboutDialog()">
       <mat-icon>info</mat-icon>
       <span>About</span>
     </button>
@@ -164,6 +228,18 @@
         <mat-icon>person</mat-icon>
         <span>{{ authEmail || 'Logged in' }}</span>
       </button>
+      <button mat-menu-item (click)="openAccountDialog()">
+        <mat-icon>manage_accounts</mat-icon>
+        <span>Account</span>
+      </button>
+      <button mat-menu-item (click)="openMyShapesDialog()">
+        <mat-icon>category</mat-icon>
+        <span>My Shapes</span>
+      </button>
+      <button mat-menu-item (click)="openPrivacyPolicyDialog()">
+        <mat-icon>policy</mat-icon>
+        <span>Privacy Policy</span>
+      </button>
       <button mat-menu-item (click)="logout()">
         <mat-icon>logout</mat-icon>
         <span>Logout</span>
@@ -172,17 +248,17 @@
   </mat-menu>
 
   <div class="gol-toolstrip">
-    <button mat-mini-fab [class.active]="selectedTool === 'toggle'" color="primary" matTooltip="Select/Toggle" (click)="setTool('toggle')"><mat-icon>mouse</mat-icon></button>
-    <button mat-mini-fab [class.active]="selectedTool === 'draw'" color="primary" matTooltip="Draw" (click)="setTool('draw')"><mat-icon>edit</mat-icon></button>
-    <button mat-mini-fab [class.active]="selectedTool === 'erase'" color="primary" matTooltip="Erase (Rect)" (click)="setTool('erase')"><mat-icon>auto_fix_off</mat-icon></button>
-    <button mat-mini-fab [class.active]="selectedTool === 'line'" color="primary" matTooltip="Line" (click)="setTool('line')"><mat-icon>show_chart</mat-icon></button>
-    <button mat-mini-fab [class.active]="selectedTool === 'rect'" color="primary" matTooltip="Rectangle" (click)="setTool('rect')"><mat-icon>crop_square</mat-icon></button>
-    <button mat-mini-fab [class.active]="selectedTool === 'square'" color="primary" matTooltip="Square" (click)="setTool('square')"><mat-icon>square</mat-icon></button>
-    <button mat-mini-fab [class.active]="selectedTool === 'circle'" color="primary" matTooltip="Circle" (click)="setTool('circle')"><mat-icon>circle</mat-icon></button>
-    <button mat-mini-fab [class.active]="selectedTool === 'oval'" color="primary" matTooltip="Oval" (click)="setTool('oval')"><mat-icon>panorama_fish_eye</mat-icon></button>
-    <button mat-mini-fab [class.active]="selectedTool === 'randomRect'" color="primary" matTooltip="Random Fill" (click)="setTool('randomRect')"><mat-icon>scatter_plot</mat-icon></button>
-    <button mat-mini-fab [class.active]="selectedTool === 'capture'" color="primary" matTooltip="Capture" (click)="setTool('capture')"><mat-icon>photo_camera</mat-icon></button>
-    <button mat-mini-fab [class.active]="selectedTool === 'shapes'" color="primary" matTooltip="Shapes" (click)="setTool('shapes'); openShapePalette()"><mat-icon>category</mat-icon></button>
+    <button mat-mini-fab [class.active]="selectedTool === 'toggle'" color="primary" matTooltip="Select/Toggle" (click)="setTool('toggle')" aria-label="Select or toggle tool"><mat-icon>mouse</mat-icon></button>
+    <button mat-mini-fab [class.active]="selectedTool === 'draw'" color="primary" matTooltip="Draw" (click)="setTool('draw')" aria-label="Draw tool"><mat-icon>edit</mat-icon></button>
+    <button mat-mini-fab [class.active]="selectedTool === 'erase'" color="primary" matTooltip="Erase (Rect)" (click)="setTool('erase')" aria-label="Erase rectangle tool"><mat-icon>auto_fix_off</mat-icon></button>
+    <button mat-mini-fab [class.active]="selectedTool === 'line'" color="primary" matTooltip="Line" (click)="setTool('line')" aria-label="Line tool"><mat-icon>show_chart</mat-icon></button>
+    <button mat-mini-fab [class.active]="selectedTool === 'rect'" color="primary" matTooltip="Rectangle" (click)="setTool('rect')" aria-label="Rectangle tool"><mat-icon>crop_square</mat-icon></button>
+    <button mat-mini-fab [class.active]="selectedTool === 'square'" color="primary" matTooltip="Square" (click)="setTool('square')" aria-label="Square tool"><mat-icon>square</mat-icon></button>
+    <button mat-mini-fab [class.active]="selectedTool === 'circle'" color="primary" matTooltip="Circle" (click)="setTool('circle')" aria-label="Circle tool"><mat-icon>circle</mat-icon></button>
+    <button mat-mini-fab [class.active]="selectedTool === 'oval'" color="primary" matTooltip="Oval" (click)="setTool('oval')" aria-label="Oval tool"><mat-icon>panorama_fish_eye</mat-icon></button>
+    <button mat-mini-fab [class.active]="selectedTool === 'randomRect'" color="primary" matTooltip="Random Fill" (click)="setTool('randomRect')" aria-label="Random fill tool"><mat-icon>scatter_plot</mat-icon></button>
+    <button mat-mini-fab [class.active]="selectedTool === 'capture'" color="primary" matTooltip="Capture" (click)="setTool('capture')" aria-label="Capture tool"><mat-icon>photo_camera</mat-icon></button>
+    <button mat-mini-fab [class.active]="selectedTool === 'shapes'" color="primary" matTooltip="Shapes" (click)="setTool('shapes'); openShapePalette()" aria-label="Shapes tool"><mat-icon>category</mat-icon></button>
   </div>
 
 
@@ -196,7 +272,7 @@
     >
       <div class="gol-options-header">
         <span>Options</span>
-        <button mat-icon-button (click)="closeOptions()"><mat-icon>close</mat-icon></button>
+        <button mat-icon-button (click)="closeOptions()" aria-label="Close options panel"><mat-icon>close</mat-icon></button>
       </div>
       <app-options-panel></app-options-panel>
     </mat-sidenav>
@@ -219,6 +295,7 @@
           (cursorChange)="onCursorChange($event)"
           (canvasEvent)="onCanvasEvent($event)"
           (zoomChange)="onZoom($event)"
+          (panChange)="onPan($event)"
         ></app-game-canvas>
 
         <div class="gol-loading-overlay" *ngIf="shapesLoading">
@@ -246,7 +323,7 @@
       </div>
 
       <div class="gol-dialog-backdrop" *ngIf="showSaveDialog">
-        <div class="gol-dialog gol-save-dialog">
+        <div class="gol-dialog gol-save-dialog" role="dialog" aria-modal="true" aria-label="Save Grid State" tabindex="-1">
           <h2>Save Grid State</h2>
           <div class="gol-dialog-body">
             <div class="gol-dialog-meta">
@@ -275,7 +352,7 @@
       </div>
 
       <div class="gol-dialog-backdrop" *ngIf="showLoadDialog">
-        <div class="gol-dialog gol-load-dialog">
+        <div class="gol-dialog gol-load-dialog" role="dialog" aria-modal="true" aria-label="Load Grid State" tabindex="-1">
           <h2>Load Grid State</h2>
           <div class="gol-dialog-body">
             <div class="gol-dialog-error" *ngIf="gridsError">{{ gridsError }}</div>
@@ -332,7 +409,7 @@
       </div>
 
       <div class="gol-dialog-backdrop" *ngIf="showDuplicateDialog">
-        <div class="gol-dialog">
+        <div class="gol-dialog" role="dialog" aria-modal="true" aria-label="Duplicate Shape Detected" tabindex="-1">
           <h2>Duplicate Shape Detected</h2>
           <div class="gol-dialog-body">
             <p>A shape with the same pattern already exists in the catalog:</p>
@@ -351,7 +428,7 @@
       </div>
 
       <div class="gol-dialog-backdrop" *ngIf="showStableDialog && detectStablePopulation">
-        <div class="gol-dialog">
+        <div class="gol-dialog" role="dialog" aria-modal="true" aria-label="Stable Pattern Detected" tabindex="-1">
           <h2>Stable Pattern Detected</h2>
           <div class="gol-dialog-body" *ngIf="stableDetectionInfo">
             <p><strong>Pattern Type:</strong> {{ stableDetectionInfo.patternType }}</p>
@@ -372,13 +449,354 @@
       </div>
 
       <div class="gol-dialog-backdrop" *ngIf="showFirstLoadWarning">
-        <div class="gol-dialog">
+        <div class="gol-dialog" role="dialog" aria-modal="true" aria-label="First Load Warning" tabindex="-1">
           <h2>First Load Warning</h2>
           <div class="gol-dialog-body">
             <p>This may take a moment while we load shapes and initialize the simulation.</p>
           </div>
           <div class="gol-dialog-actions">
             <button mat-raised-button color="primary" (click)="closeFirstLoadWarning()">OK</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="gol-dialog-backdrop" *ngIf="showImportShapeDialog">
+        <div class="gol-dialog gol-wide-dialog" role="dialog" aria-modal="true" aria-label="Import Shape" tabindex="-1">
+          <h2>Import Shape</h2>
+          <div class="gol-dialog-body">
+            <p class="gol-dialog-caption">Paste RLE text, a coordinate list, or provide a URL to import a pattern.</p>
+            <div class="gol-dialog-error" *ngIf="importShapeError">{{ importShapeError }}</div>
+
+            <mat-form-field appearance="fill" class="gol-dialog-field">
+              <mat-label>Name</mat-label>
+              <input matInput [(ngModel)]="importShapeName" maxlength="120" [disabled]="importShapeBusy">
+            </mat-form-field>
+
+            <mat-form-field appearance="fill" class="gol-dialog-field">
+              <mat-label>Description</mat-label>
+              <textarea matInput rows="2" [(ngModel)]="importShapeDescription" [disabled]="importShapeBusy"></textarea>
+            </mat-form-field>
+
+            <mat-form-field appearance="fill" class="gol-dialog-field">
+              <mat-label>Import Text (RLE or x,y per line)</mat-label>
+              <textarea matInput rows="7" [(ngModel)]="importShapeText" [disabled]="importShapeBusy"></textarea>
+            </mat-form-field>
+
+            <div class="gol-or">or</div>
+
+            <mat-form-field appearance="fill" class="gol-dialog-field">
+              <mat-label>Import URL</mat-label>
+              <input matInput [(ngModel)]="importShapeUrl" placeholder="https://..." [disabled]="importShapeBusy">
+            </mat-form-field>
+
+            <mat-checkbox [(ngModel)]="importShapePublic" [disabled]="importShapeBusy || !isLoggedIn">
+              Save as public (when saving to catalog)
+            </mat-checkbox>
+          </div>
+          <div class="gol-dialog-actions">
+            <button mat-button (click)="closeImportShapeDialog()" [disabled]="importShapeBusy">Cancel</button>
+            <button mat-stroked-button color="primary" (click)="handleImportShape(false)" [disabled]="importShapeBusy">Import Only</button>
+            <button mat-raised-button color="primary" (click)="handleImportShape(true)" [disabled]="importShapeBusy">
+              Import and Save
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="gol-dialog-backdrop" *ngIf="showHelpDialog">
+        <div class="gol-dialog gol-xl-dialog" role="dialog" aria-modal="true" aria-label="Help" tabindex="-1">
+          <h2>Help</h2>
+          <div class="gol-dialog-body gol-help-grid">
+            <section class="gol-help-card">
+              <h3>Core Controls</h3>
+              <ul>
+                <li>Draw tools apply edits on mouse release, then sync into the current run loop.</li>
+                <li>Use mouse wheel to zoom in/out on the cursor point.</li>
+                <li>Pan with Shift + Drag, Middle Mouse Drag, Right Mouse Drag, or Arrow keys.</li>
+                <li>HashLife mode advances in jumps for speed and renders checkpoints.</li>
+              </ul>
+            </section>
+
+            <section class="gol-help-card">
+              <h3>Global Shortcuts</h3>
+              <ul>
+                <li><strong>Space</strong> Run/Pause</li>
+                <li><strong>N</strong> or <strong>.</strong> Step one tick</li>
+                <li><strong>C</strong> Clear grid</li>
+                <li><strong>K</strong> Script playground</li>
+                <li><strong>P</strong> Open shape palette</li>
+                <li><strong>H</strong> Toggle options panel</li>
+                <li><strong>+</strong> / <strong>-</strong> Zoom in/out</li>
+                <li><strong>Arrow Keys</strong> Pan viewport (hold Shift for larger stride)</li>
+                <li><strong>1-9</strong> Tool quick select</li>
+              </ul>
+            </section>
+
+            <section class="gol-help-card">
+              <h3>Scripting Quickstart</h3>
+              <ul>
+                <li>Open Script Playground (`K`) and load a template.</li>
+                <li>Run scripts with `api` helpers like `fillRect`, `line`, `stamp`, and `loadRle`.</li>
+                <li>Use `api.log(...)` to print progress in the output panel.</li>
+                <li>Scripts have an operation limit to protect UI responsiveness.</li>
+              </ul>
+            </section>
+
+            <section class="gol-help-card">
+              <h3>Safety + Performance</h3>
+              <ul>
+                <li>Use Options to cap FPS/GPS and enable accessibility safeguards.</li>
+                <li>HashLife jump size should be increased gradually to avoid hard-to-read leaps.</li>
+                <li>If the scene feels busy, reduce zoom and pause before large edits.</li>
+              </ul>
+            </section>
+          </div>
+          <div class="gol-dialog-actions">
+            <button mat-raised-button color="primary" (click)="closeHelpDialog()">Close</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="gol-dialog-backdrop" *ngIf="showAboutDialog">
+        <div class="gol-dialog" role="dialog" aria-modal="true" aria-label="About" tabindex="-1">
+          <h2>About</h2>
+          <div class="gol-dialog-body">
+            <p>This app is an interactive Conway's Game of Life workspace with normal and HashLife-style exploration modes.</p>
+            <p>Use the script playground, shape import, and observatory controls to experiment quickly.</p>
+          </div>
+          <div class="gol-dialog-actions">
+            <button mat-stroked-button (click)="openLifeWiki()">Open LifeWiki</button>
+            <button mat-button (click)="openDonate()">Donate</button>
+            <button mat-raised-button color="primary" (click)="closeAboutDialog()">Close</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="gol-dialog-backdrop" *ngIf="showPhotosensitivityDialog">
+        <div class="gol-dialog" role="dialog" aria-modal="true" aria-label="Photosensitivity Test" tabindex="-1">
+          <h2>Photosensitivity Test</h2>
+          <div class="gol-dialog-body">
+            <p>Run a passive background analysis while you continue using the app. This dialog will reopen with results when the probe finishes.</p>
+            <p class="gol-dialog-caption">This is a heuristic safety check only. It is not a medical diagnostic tool.</p>
+            <div class="gol-dialog-chip-row">
+              <span class="gol-chip">ADA mode: {{ adaCompliance ? 'On' : 'Off' }}</span>
+              <span class="gol-chip">FPS cap: {{ performanceCaps.enableFPSCap ? performanceCaps.maxFPS : 'Off' }}</span>
+              <span class="gol-chip">GPS cap: {{ performanceCaps.enableGPSCap ? performanceCaps.maxGPS : 'Off' }}</span>
+            </div>
+            <div class="gol-script-output" *ngIf="photoTestResult">{{ photoTestResult }}</div>
+          </div>
+          <div class="gol-dialog-actions">
+            <button mat-button (click)="closePhotosensitivityTest()">Close</button>
+            <button mat-stroked-button color="primary" (click)="runPhotosensitivityProbe()" [disabled]="photoTestInProgress">
+              {{ photoTestInProgress ? 'Running...' : 'Run Passive Probe' }}
+            </button>
+            <button mat-raised-button color="primary" (click)="applySafeVisualCaps()">Apply Safer Caps</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="gol-dialog-backdrop" *ngIf="showScriptDialog">
+        <div class="gol-dialog gol-xl-dialog" role="dialog" aria-modal="true" aria-label="Script Playground" tabindex="-1">
+          <h2>Script Playground</h2>
+          <div class="gol-dialog-body">
+            <div class="gol-script-grid">
+              <div class="gol-script-left">
+                <mat-form-field appearance="fill" class="gol-dialog-field">
+                  <mat-label>Script Library</mat-label>
+                  <mat-select [ngModel]="selectedScriptId" (ngModelChange)="loadScriptFromLibrary($event)">
+                    <mat-option *ngFor="let script of myScripts" [value]="script.id">{{ script.name }}</mat-option>
+                  </mat-select>
+                </mat-form-field>
+
+                <button mat-stroked-button class="gol-script-button" (click)="refreshScriptLibrary()" [disabled]="scriptsLoading">
+                  {{ scriptsLoading ? 'Refreshing...' : 'Refresh Library' }}
+                </button>
+                <button mat-stroked-button class="gol-script-button" (click)="deleteSelectedScript()" [disabled]="!selectedScriptId">
+                  Delete Selected
+                </button>
+                <mat-checkbox [(ngModel)]="scriptIsPublic" [disabled]="!isLoggedIn">Save as public</mat-checkbox>
+
+                <mat-divider></mat-divider>
+
+                <mat-form-field appearance="fill" class="gol-dialog-field">
+                  <mat-label>Template Starter</mat-label>
+                  <mat-select [(ngModel)]="selectedScriptTemplateId">
+                    <mat-option *ngFor="let template of scriptTemplates" [value]="template.id">
+                      {{ template.name }} ({{ template.difficulty }})
+                    </mat-option>
+                  </mat-select>
+                </mat-form-field>
+                <button mat-stroked-button class="gol-script-button" (click)="applySelectedScriptTemplate()">
+                  Load Template
+                </button>
+
+                <mat-form-field appearance="fill" class="gol-dialog-field">
+                  <mat-label>Max Script Operations</mat-label>
+                  <input matInput type="number" min="1000" step="1000" [(ngModel)]="scriptMaxOperations">
+                </mat-form-field>
+
+                <div class="gol-learning-panels">
+                  <div class="gol-learning-title">Learning Paths</div>
+                  <button
+                    mat-stroked-button
+                    class="gol-learning-card"
+                    type="button"
+                    *ngFor="let panel of scriptLearningPanels"
+                    (click)="applyLearningTemplate(panel.id)"
+                  >
+                    <span class="gol-learning-card-title">{{ panel.title }} · {{ panel.audience }}</span>
+                    <span class="gol-learning-card-focus">{{ panel.focus }}</span>
+                    <span class="gol-learning-card-try">Try: {{ panel.tryThis }}</span>
+                  </button>
+                </div>
+
+                <div class="gol-script-api">
+                  <div class="gol-learning-title">API Quick Reference</div>
+                  <code *ngFor="let line of scriptApiReference">{{ line }}</code>
+                </div>
+
+                <div class="gol-dialog-error" *ngIf="scriptsError">{{ scriptsError }}</div>
+              </div>
+
+              <div class="gol-script-right">
+                <mat-form-field appearance="fill" class="gol-dialog-field">
+                  <mat-label>Script Name</mat-label>
+                  <input matInput [(ngModel)]="scriptName" maxlength="140">
+                </mat-form-field>
+                <mat-form-field appearance="fill" class="gol-dialog-field">
+                  <mat-label>Script Code</mat-label>
+                  <textarea matInput rows="14" [(ngModel)]="scriptCode"></textarea>
+                </mat-form-field>
+                <div class="gol-dialog-error" *ngIf="scriptError">{{ scriptError }}</div>
+                <div class="gol-script-output" *ngIf="scriptOutput">{{ scriptOutput }}</div>
+              </div>
+            </div>
+          </div>
+          <div class="gol-dialog-actions">
+            <button mat-button (click)="closeScriptPlayground()">Close</button>
+            <button mat-stroked-button color="primary" (click)="saveCurrentScript()">Save Script</button>
+            <button mat-raised-button color="primary" (click)="runScript()">Run Script</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="gol-dialog-backdrop" *ngIf="showStatisticsDialog">
+        <div class="gol-dialog" role="dialog" aria-modal="true" aria-label="Simulation Statistics" tabindex="-1">
+          <h2>Simulation Statistics</h2>
+          <div class="gol-dialog-body gol-stats-grid">
+            <div class="gol-stat-item"><span>Engine</span><strong>{{ engineMode === 'hashlife' ? 'HashLife' : 'Normal' }}</strong></div>
+            <div class="gol-stat-item"><span>Generation</span><strong>{{ generation }}</strong></div>
+            <div class="gol-stat-item"><span>Live Cells</span><strong>{{ liveCells.length }}</strong></div>
+            <div class="gol-stat-item"><span>Population Samples</span><strong>{{ popHistory.length }}</strong></div>
+            <div class="gol-stat-item"><span>Latest Population</span><strong>{{ popHistory.length ? popHistory[popHistory.length - 1] : liveCells.length }}</strong></div>
+            <div class="gol-stat-item"><span>Jump Size</span><strong>{{ formatGeneration(hashlifeBatchSize) }}</strong></div>
+            <div class="gol-stat-item"><span>Worker Latency</span><strong>{{ hashlifeWorkerElapsedMs | number:'1.0-1' }} ms</strong></div>
+            <div class="gol-stat-item"><span>Throughput</span><strong>{{ formatGeneration(hashlifeThroughputGps) }} gen/s</strong></div>
+          </div>
+          <div class="gol-dialog-actions">
+            <button mat-raised-button color="primary" (click)="closeStatisticsDialog()">Close</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="gol-dialog-backdrop" *ngIf="showAccountDialog">
+        <div class="gol-dialog" role="dialog" aria-modal="true" aria-label="Account" tabindex="-1">
+          <h2>Account</h2>
+          <div class="gol-dialog-body">
+            <div class="gol-dialog-chip-row">
+              <span class="gol-chip">{{ authEmail || 'Unknown email' }}</span>
+              <span class="gol-chip">{{ hasDonated ? 'Supporter' : 'Standard account' }}</span>
+            </div>
+            <p>You can manage your private/public shapes and account-related actions here.</p>
+          </div>
+          <div class="gol-dialog-actions">
+            <button mat-stroked-button (click)="openMyShapesDialog()">My Shapes</button>
+            <button mat-stroked-button (click)="openPrivacyPolicyDialog()">Privacy Policy</button>
+            <button mat-button (click)="logout()">Logout</button>
+            <button mat-raised-button color="primary" (click)="closeAccountDialog()">Close</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="gol-dialog-backdrop" *ngIf="showMyShapesDialog">
+        <div class="gol-dialog gol-xl-dialog" role="dialog" aria-modal="true" aria-label="My Shapes" tabindex="-1">
+          <h2>My Shapes</h2>
+          <div class="gol-dialog-body">
+            <div class="gol-dialog-error" *ngIf="myShapesError">{{ myShapesError }}</div>
+            <div class="gol-load-loading" *ngIf="myShapesLoading">Loading your shapes...</div>
+            <div class="gol-my-shapes-list" *ngIf="!myShapesLoading">
+              <div
+                class="gol-my-shape-row"
+                role="button"
+                tabindex="0"
+                *ngFor="let shape of myShapes"
+                [class.selected]="selectedMyShapeId === ((shape.id || '') + '')"
+                (click)="selectMyShape((shape.id || '') + '')"
+                (keydown.enter)="selectMyShape((shape.id || '') + '')"
+              >
+                <div class="gol-my-shape-name">{{ shape.name }}</div>
+                <div class="gol-my-shape-meta">
+                  <span>{{ shape.population || shape.cells?.length || 0 }} cells</span>
+                  <span class="dot">•</span>
+                  <span>{{ shape.public ? 'Public' : 'Private' }}</span>
+                </div>
+              </div>
+              <div class="gol-load-empty" *ngIf="myShapes.length === 0">No saved shapes yet.</div>
+            </div>
+          </div>
+          <div class="gol-dialog-actions">
+            <button mat-button (click)="closeMyShapesDialog()">Close</button>
+            <button mat-stroked-button (click)="refreshMyShapes()">Refresh</button>
+            <button mat-stroked-button color="primary" (click)="useSelectedMyShape()" [disabled]="!selectedMyShapeId">Use Shape Tool</button>
+            <button mat-stroked-button color="primary" (click)="loadSelectedMyShapeToGrid()" [disabled]="!selectedMyShapeId">Load to Grid</button>
+            <button mat-stroked-button (click)="toggleSelectedMyShapePublic()" [disabled]="!selectedMyShapeId">Toggle Public</button>
+            <button mat-stroked-button color="warn" (click)="deleteSelectedMyShape()" [disabled]="!selectedMyShapeId">Delete</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="gol-dialog-backdrop" *ngIf="showPrivacyPolicyDialog">
+        <div class="gol-dialog" role="dialog" aria-modal="true" aria-label="Privacy Policy" tabindex="-1">
+          <h2>Privacy Policy</h2>
+          <div class="gol-dialog-body">
+            <p>Your account stores profile identity and shapes/scripts you choose to save.</p>
+            <p>Private items are visible only to you; public items are visible to all users.</p>
+            <p>Authentication tokens are stored in session storage for the active browser session.</p>
+          </div>
+          <div class="gol-dialog-actions">
+            <button mat-raised-button color="primary" (click)="closePrivacyPolicyDialog()">Close</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="gol-dialog-backdrop" *ngIf="showCaptureDialog">
+        <div class="gol-dialog" role="dialog" aria-modal="true" aria-label="Capture Region" tabindex="-1">
+          <h2>Capture Region</h2>
+          <div class="gol-dialog-body">
+            <div class="gol-dialog-error" *ngIf="captureShapeError">{{ captureShapeError }}</div>
+            <p class="gol-dialog-caption" *ngIf="capturedShapeCells.length > 0">
+              Captured {{ capturedShapeCells.length }} live cells. Name this pattern to use it as a shape.
+            </p>
+            <mat-form-field appearance="fill" class="gol-dialog-field">
+              <mat-label>Shape Name</mat-label>
+              <input matInput [(ngModel)]="captureShapeName" maxlength="120">
+            </mat-form-field>
+            <mat-form-field appearance="fill" class="gol-dialog-field">
+              <mat-label>Description</mat-label>
+              <textarea matInput rows="2" [(ngModel)]="captureShapeDescription"></textarea>
+            </mat-form-field>
+            <mat-checkbox [(ngModel)]="captureShapePublic" [disabled]="!isLoggedIn">
+              Save as public (when saving to catalog)
+            </mat-checkbox>
+          </div>
+          <div class="gol-dialog-actions">
+            <button mat-button (click)="closeCaptureDialog()">Cancel</button>
+            <button mat-stroked-button color="primary" (click)="confirmCaptureShape(false)" [disabled]="capturedShapeCells.length === 0">
+              Use Without Saving
+            </button>
+            <button mat-raised-button color="primary" (click)="confirmCaptureShape(true)" [disabled]="capturedShapeCells.length === 0">
+              Save to Catalog
+            </button>
           </div>
         </div>
       </div>
@@ -398,9 +816,9 @@
         </ng-container>
       </div>
         <div class="gol-status-center">
-          <button mat-icon-button (click)="zoomOut()" matTooltip="Zoom out"><mat-icon>remove</mat-icon></button>
+          <button mat-icon-button (click)="zoomOut()" matTooltip="Zoom out" aria-label="Zoom out"><mat-icon>remove</mat-icon></button>
           <span class="gol-zoom-label">{{ cellSize }}x</span>
-          <button mat-icon-button (click)="zoomIn()" matTooltip="Zoom in"><mat-icon>add</mat-icon></button>
+          <button mat-icon-button (click)="zoomIn()" matTooltip="Zoom in" aria-label="Zoom in"><mat-icon>add</mat-icon></button>
         </div>
         <div class="gol-status-right">
           <app-population-mini-panel

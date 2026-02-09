@@ -1,4 +1,16 @@
-import { ChangeDetectionStrategy, Component, Input, OnChanges, ElementRef, ViewChild, AfterViewInit, HostListener, Output, EventEmitter } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  Input,
+  OnChanges,
+  ElementRef,
+  ViewChild,
+  AfterViewInit,
+  HostListener,
+  Output,
+  EventEmitter,
+  HostBinding
+} from '@angular/core';
 import { ToolsService, ToolOverlay } from '../model/tools.service';
 
 @Component({
@@ -31,17 +43,25 @@ export class GameCanvasComponent implements OnChanges, AfterViewInit {
   @Output() cursorChange = new EventEmitter<{ x: number; y: number }>();
   @Output() canvasEvent = new EventEmitter<{ type: 'down' | 'move' | 'up'; x: number; y: number }>();
   @Output() zoomChange = new EventEmitter<{ deltaY: number; screenX: number; screenY: number; width: number; height: number }>();
+  @Output() panChange = new EventEmitter<{ deltaX: number; deltaY: number }>();
 
   @ViewChild('canvas', { static: true }) canvasRef!: ElementRef<HTMLCanvasElement>;
 
   private resizeObserver?: ResizeObserver;
   private isPointerDown = false;
+  private isPanning = false;
   private lastHoverCell: { x: number; y: number } | null = null;
+  private lastPanPointer: { x: number; y: number } | null = null;
   private drawPending = false;
   private canvasWidthPx = 0;
   private canvasHeightPx = 0;
   private dpr = 1;
   private lastCellSize = 0;
+
+  @HostBinding('class.gol-pan-active')
+  get panClass() {
+    return this.isPanning;
+  }
 
   get canvasTransform() {
     return `translate(${this.shiftX}px, ${this.shiftY}px)`;
@@ -73,6 +93,12 @@ export class GameCanvasComponent implements OnChanges, AfterViewInit {
 
   @HostListener('mousedown', ['$event'])
   onPointerDown(event: MouseEvent) {
+    if (this.shouldStartPan(event)) {
+      this.isPanning = true;
+      this.lastPanPointer = { x: event.clientX, y: event.clientY };
+      event.preventDefault();
+      return;
+    }
     this.isPointerDown = true;
     const pos = this.getCellFromEvent(event);
     this.lastHoverCell = pos;
@@ -91,6 +117,10 @@ export class GameCanvasComponent implements OnChanges, AfterViewInit {
 
   @HostListener('window:blur')
   onWindowBlur() {
+    if (this.isPanning) {
+      this.isPanning = false;
+      this.lastPanPointer = null;
+    }
     // If the window loses focus during a drag, finalize with the last known cell.
     if (!this.isPointerDown) return;
     this.isPointerDown = false;
@@ -101,12 +131,34 @@ export class GameCanvasComponent implements OnChanges, AfterViewInit {
 
   @HostListener('mousemove', ['$event'])
   onPointerMove(event: MouseEvent) {
+    if (this.isPanning) {
+      event.preventDefault();
+      if (!this.lastPanPointer) {
+        this.lastPanPointer = { x: event.clientX, y: event.clientY };
+        return;
+      }
+      const deltaX = event.clientX - this.lastPanPointer.x;
+      const deltaY = event.clientY - this.lastPanPointer.y;
+      this.lastPanPointer = { x: event.clientX, y: event.clientY };
+      if (deltaX || deltaY) {
+        this.panChange.emit({ deltaX, deltaY });
+      }
+      return;
+    }
+
     const pos = this.getCellFromEvent(event);
     if (!pos) return;
     this.lastHoverCell = pos;
     this.cursorChange.emit({ x: pos.x, y: pos.y });
     if (this.isPointerDown) {
       this.canvasEvent.emit({ type: 'move', ...pos });
+    }
+  }
+
+  @HostListener('contextmenu', ['$event'])
+  onContextMenu(event: MouseEvent) {
+    if (event.button === 2 || this.isPanning) {
+      event.preventDefault();
     }
   }
 
@@ -151,6 +203,12 @@ export class GameCanvasComponent implements OnChanges, AfterViewInit {
   }
 
   private handlePointerUp(event: MouseEvent) {
+    if (this.isPanning) {
+      this.isPanning = false;
+      this.lastPanPointer = null;
+      return;
+    }
+
     if (!this.isPointerDown) return;
     const canvas = this.canvasRef?.nativeElement;
     if (!canvas) return;
@@ -161,6 +219,10 @@ export class GameCanvasComponent implements OnChanges, AfterViewInit {
 
     this.isPointerDown = false;
     if (pos) this.canvasEvent.emit({ type: 'up', ...pos });
+  }
+
+  private shouldStartPan(event: MouseEvent) {
+    return event.button === 1 || event.button === 2 || event.shiftKey;
   }
 
   private resizeCanvas() {

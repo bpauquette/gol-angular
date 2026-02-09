@@ -29,9 +29,9 @@ export class AuthInterceptor implements HttpInterceptor {
         return url.startsWith(base);
       }
       return url.startsWith('/api') || url.startsWith('/v1');
-    } catch {
+    } catch (error) {
+      console.error('[AuthInterceptor] Failed to evaluate auth header attachment.', { url, error });
       return false;
     }
   }
 }
-

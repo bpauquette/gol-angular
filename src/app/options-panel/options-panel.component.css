@@ -8,3 +8,80 @@ mat-card {
 h2 { margin-top: 16px; font-size: 1.25rem; }
 mat-form-field { width: 100%; margin-bottom: 12px; }
 mat-checkbox { margin-bottom: 8px; }
+
+.gol-options-hint {
+  margin: 0 0 12px 0;
+  font-size: 0.82rem;
+  color: var(--gol-text-secondary);
+}
+
+.gol-legal-warning {
+  margin: 10px 0 14px 0;
+  padding: 12px;
+  border: 1px solid rgba(255, 120, 120, 0.55);
+  border-radius: 10px;
+  background: rgba(120, 20, 20, 0.25);
+}
+
+.gol-legal-warning h3 {
+  margin: 0 0 8px 0;
+  color: #ffd2d2;
+  font-size: 1rem;
+}
+
+.gol-legal-warning p {
+  margin: 0 0 8px 0;
+  color: var(--gol-text-primary);
+  line-height: 1.35;
+}
+
+.gol-legal-emphasis {
+  font-weight: 700;
+}
+
+.gol-legal-image {
+  display: block;
+  width: 100%;
+  max-width: 260px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  margin-top: 8px;
+}
+
+.gol-legal-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.62);
+  z-index: 1400;
+  padding: 16px;
+}
+
+.gol-legal-dialog {
+  width: min(560px, 100%);
+  background: var(--gol-panel-bg-strong);
+  border: 1px solid var(--gol-panel-border);
+  border-radius: 10px;
+  padding: 16px;
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.45);
+}
+
+.gol-legal-dialog h3 {
+  margin: 0 0 8px 0;
+  color: var(--gol-text-primary);
+}
+
+.gol-legal-dialog p {
+  margin: 0 0 10px 0;
+  color: var(--gol-text-secondary);
+  line-height: 1.35;
+}
+
+.gol-legal-dialog-actions {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

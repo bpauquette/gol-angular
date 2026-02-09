@@ -65,7 +65,10 @@ export class GridCatalogService {
           pageSize: Number(data?.pageSize) || pageSize
         };
       }),
-      catchError(() => of({ items: [], total: 0, page, pageSize }))
+      catchError((error) => {
+        console.error('[GridCatalog] Failed to list grids.', { page, pageSize, error });
+        return of({ items: [], total: 0, page, pageSize });
+      })
     );
   }
 
@@ -74,7 +77,10 @@ export class GridCatalogService {
     const url = `${this.getBackendBase()}/v1/grids/${encodeURIComponent(id)}`;
     return this.http.get<any>(url).pipe(
       map((data) => this.toGridItem(data)),
-      catchError(() => of(null))
+      catchError((error) => {
+        console.error('[GridCatalog] Failed to load grid by id.', { id, error });
+        return of(null);
+      })
     );
   }
 
@@ -103,7 +109,10 @@ export class GridCatalogService {
     const url = `${this.getBackendBase()}/v1/grids/${encodeURIComponent(id)}`;
     return this.http.delete(url, { observe: 'response' }).pipe(
       map((res) => res.status >= 200 && res.status < 300),
-      catchError(() => of(false))
+      catchError((error) => {
+        console.error('[GridCatalog] Failed to delete grid.', { id, error });
+        return of(false);
+      })
     );
   }
 
@@ -130,7 +139,8 @@ function normalizeCells(raw: any): GridCell[] {
   if (typeof input === 'string') {
     try {
       input = JSON.parse(input);
-    } catch {
+    } catch (error) {
+      console.error('[GridCatalog] Failed to parse grid liveCells payload.', error);
       input = [];
     }
   }
@@ -149,4 +159,3 @@ function normalizeCells(raw: any): GridCell[] {
   }
   return out;
 }
-

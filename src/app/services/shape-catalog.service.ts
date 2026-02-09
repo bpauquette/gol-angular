@@ -9,6 +9,17 @@ export interface ShapeListResult {
   total: number;
 }
 
+export interface SaveShapePayload {
+  name: string;
+  description?: string;
+  cells?: { x: number; y: number }[];
+  rleText?: string;
+  public?: boolean;
+  width?: number;
+  height?: number;
+  period?: number;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ShapeCatalogService {
   private cache = new Map<string, ShapeItem>();
@@ -59,7 +70,15 @@ export class ShapeCatalogService {
           total
         };
       }),
-      catchError(() => this.fetchShapePageFallback(query, limit, offset))
+      catchError((error) => {
+        console.error('[ShapeCatalog] Failed to fetch shape names from names endpoint; using fallback.', {
+          query,
+          limit,
+          offset,
+          error
+        });
+        return this.fetchShapePageFallback(query, limit, offset);
+      })
     );
   }
 
@@ -86,7 +105,10 @@ export class ShapeCatalogService {
       tap((shape) => {
         this.cache.set(id, shape);
       }),
-      catchError(() => of({ id, name: 'Unknown shape', cells: [] })),
+      catchError((error) => {
+        console.error('[ShapeCatalog] Failed to fetch shape by id.', { id, error });
+        return of({ id, name: 'Unknown shape', cells: [] });
+      }),
       shareReplay(1)
     );
     this.inflight.set(id, request$);
@@ -95,6 +117,69 @@ export class ShapeCatalogService {
       error: () => this.inflight.delete(id)
     });
     return request$;
+  }
+
+  listMyShapes(page = 1, pageSize = 100): Observable<ShapeListResult> {
+    const base = this.getBackendBase();
+    const params = new HttpParams()
+      .set('page', String(Math.max(1, Math.floor(Number(page) || 1))))
+      .set('pageSize', String(Math.max(1, Math.min(200, Math.floor(Number(pageSize) || 100)))));
+    const url = `${base}/v1/shapes/my`;
+    return this.http.get<any>(url, { params }).pipe(
+      map((data) => {
+        const items = Array.isArray(data?.items) ? data.items : [];
+        return {
+          items: items.map((item: any) => this.toShapeItem(item)),
+          total: Number(data?.total) || items.length
+        };
+      }),
+      catchError((error) => {
+        console.error('[ShapeCatalog] Failed to list my shapes.', { page, pageSize, error });
+        return of({ items: [], total: 0 });
+      })
+    );
+  }
+
+  saveShape(payload: SaveShapePayload): Observable<ShapeItem> {
+    const base = this.getBackendBase();
+    const url = `${base}/v1/shapes`;
+    const body = {
+      name: String(payload?.name || '').trim(),
+      description: String(payload?.description || '').trim(),
+      cells: Array.isArray(payload?.cells) ? payload.cells : [],
+      rleText: payload?.rleText || null,
+      public: !!payload?.public,
+      width: Number(payload?.width) || undefined,
+      height: Number(payload?.height) || undefined,
+      period: Number(payload?.period) || undefined
+    };
+    return this.http.post<any>(url, body).pipe(
+      map((data) => this.toShapeItem(data))
+    );
+  }
+
+  deleteShape(id: string): Observable<boolean> {
+    const base = this.getBackendBase();
+    const url = `${base}/v1/shapes/${encodeURIComponent(String(id || '').trim())}`;
+    return this.http.delete(url, { observe: 'response' }).pipe(
+      map((res) => res.status >= 200 && res.status < 300),
+      catchError((error) => {
+        console.error('[ShapeCatalog] Failed to delete shape.', { id, error });
+        return of(false);
+      })
+    );
+  }
+
+  setShapePublic(id: string, isPublic: boolean): Observable<boolean> {
+    const base = this.getBackendBase();
+    const url = `${base}/v1/shapes/${encodeURIComponent(String(id || '').trim())}/public`;
+    return this.http.patch<any>(url, { public: !!isPublic }).pipe(
+      map((res) => !!res && res.public === !!isPublic),
+      catchError((error) => {
+        console.error('[ShapeCatalog] Failed to toggle shape visibility.', { id, isPublic, error });
+        return of(false);
+      })
+    );
   }
 
   prefetchShapes(items: ShapeItem[], limit = 6) {
@@ -119,20 +204,14 @@ export class ShapeCatalogService {
         const items = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
         const total = Number(data?.total) || items.length;
         return {
-          items: items.map((item: any) => ({
-            id: item.id,
-            name: item.name || 'Unnamed shape',
-            description: item.description || '',
-            cells: this.normalizeCells(item.cells || item.pattern || item.liveCells || []),
-            width: item.width || item.meta?.width,
-            height: item.height || item.meta?.height,
-            population: item.population || item.meta?.cellCount,
-            period: item.period || item.meta?.period
-          })),
+          items: items.map((item: any) => this.toShapeItem(item)),
           total
         };
       }),
-      catchError(() => of({ items: [], total: 0 }))
+      catchError((error) => {
+        console.error('[ShapeCatalog] Failed to fetch shape page fallback.', { query, limit, offset, page, error });
+        return of({ items: [], total: 0 });
+      })
     );
   }
 
@@ -153,7 +232,10 @@ export class ShapeCatalogService {
 
     return combineLatest(
       targets.map(target => this.fetchShapeById(String(target.id)).pipe(
-        catchError(() => of(target))
+        catchError((error) => {
+          console.error('[ShapeCatalog] Failed to hydrate shape in batch.', { shapeId: target?.id, error });
+          return of(target);
+        })
       ))
     ).pipe(
       map((hydrated) => {
@@ -184,5 +266,22 @@ export class ShapeCatalogService {
       if (Number.isFinite(x) && Number.isFinite(y)) out.push({ x, y });
     }
     return out;
+  }
+
+  private toShapeItem(item: any): ShapeItem {
+    return {
+      id: item?.id || item?.shape_id || item?.shapeId,
+      name: item?.name || 'Unnamed shape',
+      description: item?.description || '',
+      public: typeof item?.public === 'boolean' ? item.public : Number(item?.public) === 1,
+      userId: item?.userId || item?.user_id,
+      createdAt: item?.createdAt || item?.created_at,
+      updatedAt: item?.updatedAt || item?.updated_at,
+      cells: this.normalizeCells(item?.cells || item?.pattern || item?.liveCells || []),
+      width: item?.width || item?.meta?.width,
+      height: item?.height || item?.meta?.height,
+      population: item?.population || item?.meta?.cellCount,
+      period: item?.period || item?.meta?.period
+    };
   }
 }

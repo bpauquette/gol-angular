@@ -72,6 +72,7 @@ export class AuthDialogComponent {
       await this.auth.login(email, this.loginPassword);
       this.dialogRef.close(true);
     } catch (e: any) {
+      console.error('[AuthDialog] Login submission failed.', e);
       const msg = e?.message || 'Login failed';
       this.errorMsg = msg;
 
@@ -127,6 +128,7 @@ export class AuthDialogComponent {
       });
       this.dialogRef.close(true);
     } catch (e: any) {
+      console.error('[AuthDialog] Registration submission failed.', e);
       const msg = e?.message || 'Registration failed';
       this.errorMsg = msg;
       const status = (e as any)?.status;
@@ -158,4 +160,3 @@ export class AuthDialogComponent {
     return null;
   }
 }
-

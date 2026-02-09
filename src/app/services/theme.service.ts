@@ -35,8 +35,8 @@ export class ThemeService {
     this.themeSubject.next(theme);
     try {
       localStorage.setItem(this.storageKey, theme);
-    } catch {
-      // Ignore storage failures.
+    } catch (error) {
+      console.error('[ThemeService] Failed to persist theme mode.', { theme, error });
     }
     this.applyThemeClass(theme);
   }
@@ -47,8 +47,8 @@ export class ThemeService {
       if (stored && this.availableThemes.some(t => t.id === stored)) {
         return stored;
       }
-    } catch {
-      // Ignore storage failures.
+    } catch (error) {
+      console.error('[ThemeService] Failed to read theme mode from storage.', error);
     }
     return 'dark';
   }

@@ -7,16 +7,19 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatCardModule } from '@angular/material/card';
 import { GameRuntimeService } from '../services/game-runtime.service';
 import { ThemeService } from '../services/theme.service';
+import { SimulationColorSchemeService } from '../services/simulation-color-scheme.service';
 
 class RuntimeMock {
   detectStablePopulation$ = new BehaviorSubject<boolean>(false);
   showSpeedGauge$ = new BehaviorSubject<boolean>(true);
+  photosensitivityTesterEnabled$ = new BehaviorSubject<boolean>(false);
   performanceCaps$ = new BehaviorSubject({ maxFPS: 60, maxGPS: 30, enableFPSCap: false, enableGPSCap: false });
   maxChartGenerations$ = new BehaviorSubject<number>(5000);
   popWindowSize$ = new BehaviorSubject<number>(50);
   popTolerance$ = new BehaviorSubject<number>(0);
   setDetectStablePopulation() {}
   setShowSpeedGauge() {}
+  setPhotosensitivityTesterEnabled() {}
   setMaxFPS() {}
   setMaxGPS() {}
   setEnableFPSCap() {}
@@ -33,6 +36,16 @@ class ThemeMock {
   setTheme() {}
 }
 
+class SimulationColorSchemeMock {
+  availableSchemes = [
+    { id: 'biolife', label: 'BioLife', description: '', cellColor: '#7CFF7C', backgroundColor: '#041D38', borderColor: '#1B2B40' },
+    { id: 'adaSafe', label: 'ADA Safe', description: '', cellColor: '#59666F', backgroundColor: '#2A333A', borderColor: '#44515A' }
+  ] as any;
+  selectedSchemeId$ = new BehaviorSubject<any>('biolife');
+  currentSchemeId = 'biolife' as any;
+  setScheme() {}
+}
+
 describe('OptionsPanelComponent', () => {
   let component: OptionsPanelComponent;
   let fixture: ComponentFixture<OptionsPanelComponent>;
@@ -44,7 +57,8 @@ describe('OptionsPanelComponent', () => {
       providers: [
         AdaComplianceService,
         { provide: GameRuntimeService, useClass: RuntimeMock },
-        { provide: ThemeService, useClass: ThemeMock }
+        { provide: ThemeService, useClass: ThemeMock },
+        { provide: SimulationColorSchemeService, useClass: SimulationColorSchemeMock }
       ],
       schemas: [NO_ERRORS_SCHEMA]
     }).compileComponents();
@@ -62,6 +76,16 @@ describe('OptionsPanelComponent', () => {
     component.toggleAdaCompliance({ checked: true });
     expect(component.adaCompliance).toBe(true);
     component.toggleAdaCompliance({ checked: false });
-    expect(component.adaCompliance).toBe(false);
+    expect(component.showAdaLiabilityDialog).toBe(true);
+  });
+
+  it('should keep ADA enabled when liability dialog is canceled', () => {
+    component.adaCompliance = true;
+    component.toggleAdaCompliance({ checked: false });
+    expect(component.showAdaLiabilityDialog).toBe(true);
+
+    component.cancelDisableAda();
+    expect(component.showAdaLiabilityDialog).toBe(false);
+    expect(component.liabilityAccepted).toBe(false);
   });
 });

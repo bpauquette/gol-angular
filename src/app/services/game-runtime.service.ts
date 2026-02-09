@@ -144,8 +144,8 @@ export class GameRuntimeService implements OnDestroy {
   private performanceCapsSubject = new BehaviorSubject<PerformanceCaps>({ ...DEFAULT_CAPS });
   performanceCaps$ = this.performanceCapsSubject.asObservable();
 
-  private showSpeedGaugeSubject = new BehaviorSubject<boolean>(true);
-  showSpeedGauge$ = this.showSpeedGaugeSubject.asObservable();
+  private photosensitivityTesterEnabledSubject = new BehaviorSubject<boolean>(false);
+  photosensitivityTesterEnabled$ = this.photosensitivityTesterEnabledSubject.asObservable();
 
   private preferredCaps: PerformanceCaps = { ...DEFAULT_CAPS };
 
@@ -158,6 +158,9 @@ export class GameRuntimeService implements OnDestroy {
     private checkpointTimeline: TimelineCheckpointService,
     private ngZone: NgZone
   ) {
+    const persistedPhotoTester = this.readBoolFromStorage('photosensitivityTesterEnabled', false);
+    this.photosensitivityTesterEnabledSubject.next(persistedPhotoTester);
+
     this.liveCellsSubject.next(this.model.getLiveCells());
     this.engineModeSubject.next(this.model.getEngineMode());
     this.generationBatchSizeSubject.next(this.model.getGenerationBatchSize());
@@ -254,7 +257,8 @@ export class GameRuntimeService implements OnDestroy {
   }
 
   step() {
-    const batch = this.getBaseBatchSize();
+    // In ADA mode we only allow deterministic single-step progression.
+    const batch = this.adaComplianceSubject.value ? 1 : this.getBaseBatchSize();
     void this.executeStepBatch(batch);
   }
 
@@ -471,8 +475,10 @@ export class GameRuntimeService implements OnDestroy {
     this.detectStablePopulationSubject.next(!!enabled);
   }
 
-  setShowSpeedGauge(enabled: boolean) {
-    this.showSpeedGaugeSubject.next(!!enabled);
+  setPhotosensitivityTesterEnabled(enabled: boolean) {
+    const value = !!enabled;
+    this.photosensitivityTesterEnabledSubject.next(value);
+    this.writeBoolToStorage('photosensitivityTesterEnabled', value);
   }
 
   setMaxChartGenerations(value: number) {
@@ -711,6 +717,26 @@ export class GameRuntimeService implements OnDestroy {
     this.checkpointTimeline.addCheckpoint(generation, cells);
     this.lastCheckpointGeneration = generation;
     this.lastCheckpointAtMs = now;
+  }
+
+  private readBoolFromStorage(key: string, fallback: boolean) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw === 'true') return true;
+      if (raw === 'false') return false;
+      return fallback;
+    } catch (error) {
+      console.error('[GameRuntime] Failed to read boolean from storage.', { key, fallback, error });
+      return fallback;
+    }
+  }
+
+  private writeBoolToStorage(key: string, value: boolean) {
+    try {
+      localStorage.setItem(key, value ? 'true' : 'false');
+    } catch (error) {
+      console.error('[GameRuntime] Failed to persist boolean to storage.', { key, value, error });
+    }
   }
 }
 

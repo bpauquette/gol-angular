@@ -2,14 +2,6 @@
   <mat-card-title>Options</mat-card-title>
   <mat-card-content>
     <mat-form-field appearance="fill">
-      <mat-label>Backend</mat-label>
-      <mat-select>
-        <mat-option value="node">Node (port 55000)</mat-option>
-        <mat-option value="java">Java (port 55001)</mat-option>
-      </mat-select>
-    </mat-form-field>
-
-    <mat-form-field appearance="fill">
       <mat-label>App theme</mat-label>
       <mat-select [value]="currentTheme" (selectionChange)="onThemeChange($event.value)">
         <mat-option *ngFor="let theme of availableThemes" [value]="theme.id">
@@ -19,25 +11,51 @@
     </mat-form-field>
 
     <mat-form-field appearance="fill">
-      <mat-label>Color scheme</mat-label>
-      <mat-select>
-        <mat-option value="bio">Bio</mat-option>
-        <mat-option value="classic">Classic</mat-option>
+      <mat-label>Simulation color scheme</mat-label>
+      <mat-select
+        [value]="currentSimulationColorSchemeId"
+        [disabled]="adaCompliance"
+        (selectionChange)="onSimulationColorSchemeChange($event.value)"
+      >
+        <mat-option *ngFor="let scheme of availableSimulationColorSchemes" [value]="scheme.id">
+          {{ scheme.label }}
+        </mat-option>
       </mat-select>
     </mat-form-field>
+    <div class="gol-options-hint" *ngIf="adaCompliance">
+      ADA mode locks simulation colors to ADA Safe.
+    </div>
 
     <mat-divider></mat-divider>
     <h2>Accessibility & Compliance</h2>
     <mat-checkbox [checked]="adaCompliance" (change)="toggleAdaCompliance($event)">
-      Enable ADA Compliance Mode
+      Enable ADA Compliance Mode (Recommended)
     </mat-checkbox>
-    <mat-checkbox [checked]="adaCompliance" disabled>
+    <mat-checkbox
+      [checked]="photosensitivityTesterEnabled"
+      [disabled]="!adaCompliance"
+      (change)="togglePhotosensitivityTesterEnabled($event)"
+    >
       Enable photosensitivity tester (manual)
     </mat-checkbox>
 
+    <div class="gol-legal-warning" *ngIf="!adaCompliance">
+      <h3>Warning: ADA Mode Is Disabled</h3>
+      <p>
+        You have disabled ADA protections. Animation safeguards are reduced and visual risk may increase.
+      </p>
+      <p class="gol-legal-emphasis">
+        By continuing with ADA mode off, you accept full responsibility for operation and outcomes.
+      </p>
+      <img
+        class="gol-legal-image"
+        src="assets/jpeg/carl-reiner.jpeg"
+        alt="Humorous legal reminder image"
+      />
+    </div>
+
     <mat-divider></mat-divider>
     <h2>Performance Settings</h2>
-    <mat-checkbox [checked]="showSpeedGauge" (change)="toggleShowSpeedGauge($event)">Show Speed Gauge</mat-checkbox>
     <mat-checkbox [checked]="performanceCaps.enableFPSCap" (change)="toggleEnableFPSCap($event)">
       Enable FPS Cap
     </mat-checkbox>
@@ -65,17 +83,12 @@
         (input)="updateMaxGPS($event.target.value)"
       >
     </mat-form-field>
-    <mat-checkbox disabled>Use Web Worker</mat-checkbox>
 
     <mat-divider></mat-divider>
-    <h2>Interaction</h2>
-    <mat-checkbox>Confirm before clearing grid</mat-checkbox>
-    <mat-checkbox>Draw while running</mat-checkbox>
-    <mat-checkbox>Toggle Draw Mode</mat-checkbox>
+    <h2>Simulation Analysis</h2>
     <mat-checkbox [checked]="detectStablePopulation" (change)="toggleDetectStablePopulation($event)">
       Detect Stable Population
     </mat-checkbox>
-    <mat-checkbox>Enable memory telemetry (experimental)</mat-checkbox>
     <mat-form-field appearance="fill">
       <mat-label>Max generations in chart</mat-label>
       <input
@@ -103,9 +116,35 @@
         (input)="updatePopTolerance($event.target.value)"
       >
     </mat-form-field>
-    <mat-form-field appearance="fill">
-      <mat-label>Random rectangle fill (%)</mat-label>
-      <input matInput type="number" value="50">
-    </mat-form-field>
+
+    <div class="gol-legal-dialog-backdrop" *ngIf="showAdaLiabilityDialog">
+      <div class="gol-legal-dialog" role="dialog" aria-modal="true" aria-label="Confirm ADA disable">
+        <h3>Disable ADA Compliance?</h3>
+        <p>
+          ADA mode currently limits autoplay and visual intensity for safer operation.
+        </p>
+        <p class="gol-legal-emphasis">
+          If you disable ADA mode, you accept responsibility for running without these protections.
+        </p>
+        <mat-checkbox
+          [checked]="liabilityAccepted"
+          (change)="liabilityAccepted = !!$event.checked"
+        >
+          I understand and accept responsibility.
+        </mat-checkbox>
+        <div class="gol-legal-dialog-actions">
+          <button mat-button type="button" (click)="cancelDisableAda()">Cancel</button>
+          <button
+            mat-raised-button
+            color="warn"
+            type="button"
+            [disabled]="!liabilityAccepted"
+            (click)="confirmDisableAda()"
+          >
+            Disable ADA Mode
+          </button>
+        </div>
+      </div>
+    </div>
   </mat-card-content>
 </mat-card>

@@ -147,8 +147,8 @@ export class AuthService {
         this.emailSubject.next(res.email.trim());
         sessionStorage.setItem('authEmail', res.email.trim());
       }
-    } catch {
-      // ignore refresh errors
+    } catch (error) {
+      console.error('[AuthService] Failed to refresh profile state.', error);
     }
   }
 
@@ -161,7 +161,8 @@ export class AuthService {
       localStorage.setItem('lastCheckedEmail', normalized);
       localStorage.setItem('emailExists', exists ? 'true' : 'false');
       return exists;
-    } catch {
+    } catch (error) {
+      console.error('[AuthService] Failed to check email availability.', { email: normalized, error });
       return false;
     }
   }
@@ -190,6 +191,7 @@ export class AuthService {
       const status = err?.status;
       const serverMsg = err?.error?.error || (typeof err?.error === 'string' ? err.error : err?.message);
       const msg = status ? `HTTP ${status}: ${serverMsg || 'Request failed'}` : (serverMsg || 'Request failed');
+      console.error('[AuthService] Auth API request failed.', { path, status, serverMsg, err });
       // Mirror reference behavior: if token is invalid/expired, trigger logout.
       if (String(serverMsg || '').includes('Invalid or expired token')) {
         window.dispatchEvent(new CustomEvent('auth:logout'));
@@ -207,7 +209,8 @@ export class AuthService {
       const exp = Number(payload?.exp);
       if (!Number.isFinite(exp)) return false;
       return exp * 1000 < Date.now();
-    } catch {
+    } catch (error) {
+      console.error('[AuthService] Failed to decode auth token expiration.', error);
       return true;
     }
   }
@@ -224,4 +227,3 @@ export class AuthService {
 }
 
 export type { AuthMode };
-

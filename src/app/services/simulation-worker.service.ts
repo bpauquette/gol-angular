@@ -84,7 +84,8 @@ export class SimulationWorkerService implements OnDestroy {
         this.shutdown();
       };
       return this.worker;
-    } catch {
+    } catch (error) {
+      console.error('[SimulationWorker] Failed to initialize simulation worker.', error);
       this.workerFailed = true;
       this.shutdown();
       return null;
