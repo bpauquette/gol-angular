@@ -13,11 +13,13 @@
 
     <div class="gol-center">
       <div class="gol-engine-switch" role="group" aria-label="Engine selection">
-        <span class="gol-control-label">Engine</span>
-        <mat-button-toggle-group class="gol-toggle-group" [value]="engineMode" (change)="onEngineModeChange($event.value)">
-          <mat-button-toggle value="normal">Normal</mat-button-toggle>
-          <mat-button-toggle value="hashlife">HashLife</mat-button-toggle>
-        </mat-button-toggle-group>
+        <mat-form-field appearance="outline" class="gol-engine-select-field">
+          <mat-label>Engine</mat-label>
+          <mat-select [value]="engineMode" (selectionChange)="onEngineModeChange($event.value)">
+            <mat-option value="normal">Normal</mat-option>
+            <mat-option value="hashlife">HashLife</mat-option>
+          </mat-select>
+        </mat-form-field>
       </div>
       <div class="gol-run">
         <button
@@ -261,11 +263,11 @@
     <button mat-mini-fab [class.active]="selectedTool === 'shapes'" color="primary" matTooltip="Shapes" (click)="setTool('shapes'); openShapePalette()" aria-label="Shapes tool"><mat-icon>category</mat-icon></button>
   </div>
 
-
-  <mat-sidenav-container class="gol-shell">
+  <mat-sidenav-container class="gol-shell" [hasBackdrop]="isCompactViewport" (backdropClick)="closeOptions()">
     <mat-sidenav
-      mode="side"
+      [mode]="isCompactViewport ? 'over' : 'side'"
       position="end"
+      [fixedInViewport]="isCompactViewport"
       [opened]="optionsOpen"
       (openedChange)="setOptionsOpen($event)"
       class="gol-options"
