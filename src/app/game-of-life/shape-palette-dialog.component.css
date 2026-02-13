@@ -256,7 +256,57 @@
 }
 
 @media (max-width: 900px) {
+  .palette-dialog {
+    width: 100vw;
+    max-height: 90dvh;
+    border-radius: 12px 12px 0 0;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+  }
+
   .palette-body {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .palette-search {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .palette-search-field {
+    width: 100%;
+  }
+
+  .palette-clear {
+    min-height: 42px;
+  }
+
+  .palette-search-meta {
+    width: 100%;
+  }
+
+  .palette-list-scroll {
+    max-height: 42dvh;
+  }
+
+  .palette-item {
+    grid-template-columns: 72px 1fr;
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .palette-preview {
+    padding: 10px;
+  }
+
+  .palette-actions {
+    flex-wrap: wrap;
+    justify-content: stretch;
+  }
+
+  .palette-actions button {
+    flex: 1 1 140px;
+    min-height: 42px;
   }
 }

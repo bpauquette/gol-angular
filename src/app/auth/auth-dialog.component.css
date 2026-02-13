@@ -74,8 +74,40 @@
 }
 
 @media (max-width: 520px) {
+  .auth-dialog {
+    width: min(96vw, 560px);
+    max-height: 88dvh;
+    overflow: auto;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  }
+
+  .auth-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .auth-switch {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .auth-switch button {
+    flex: 1 1 120px;
+    min-height: 42px;
+  }
+
   .auth-grid {
     grid-template-columns: 1fr;
   }
-}
 
+  .auth-actions {
+    flex-wrap: wrap;
+    justify-content: stretch;
+  }
+
+  .auth-actions button {
+    flex: 1 1 140px;
+    min-height: 42px;
+  }
+}

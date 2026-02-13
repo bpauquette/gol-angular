@@ -103,6 +103,7 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
 
   showFirstLoadWarning = false;
   optionsOpen = false;
+  isCompactViewport = false;
 
   showSaveDialog = false;
   showLoadDialog = false;
@@ -269,6 +270,7 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit() {
+    this.updateViewportMode();
     this.subscriptions.add(
       this.simulationColorSchemes.scheme$.subscribe(scheme => {
         this.canvasCellColor = scheme.cellColor;
@@ -392,6 +394,11 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     if (!this.closeTopmostDialog()) return;
     event.preventDefault();
     event.stopPropagation();
+  }
+
+  @HostListener('window:resize')
+  onViewportResize() {
+    this.updateViewportMode();
   }
 
   toggleRun() {
@@ -1754,6 +1761,11 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
   private detectIphone() {
     const ua = navigator.userAgent || '';
     return /iPhone|iPod/i.test(ua);
+  }
+
+  private updateViewportMode() {
+    if (typeof window === 'undefined') return;
+    this.isCompactViewport = window.matchMedia('(max-width: 900px)').matches;
   }
 
   private applyIphoneCanvasDefaults() {

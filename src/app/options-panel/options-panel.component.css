@@ -85,3 +85,45 @@ mat-checkbox { margin-bottom: 8px; }
   justify-content: flex-end;
   gap: 8px;
 }
+
+@media (max-width: 900px) {
+  mat-card {
+    margin: 12px;
+    max-width: none;
+  }
+}
+
+@media (max-width: 640px) {
+  mat-card {
+    margin: 8px;
+    border-radius: 10px;
+  }
+
+  h2 {
+    font-size: 1.05rem;
+  }
+
+  .gol-legal-dialog-backdrop {
+    align-items: flex-end;
+    padding: 10px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+  }
+
+  .gol-legal-dialog {
+    width: 100%;
+    border-radius: 12px 12px 0 0;
+    max-height: 86dvh;
+    overflow: auto;
+    padding: 12px;
+  }
+
+  .gol-legal-dialog-actions {
+    flex-wrap: wrap;
+    justify-content: stretch;
+  }
+
+  .gol-legal-dialog-actions button {
+    flex: 1 1 140px;
+    min-height: 42px;
+  }
+}
