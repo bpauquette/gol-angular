@@ -404,6 +404,50 @@
   background: rgba(10, 28, 46, 0.5);
 }
 
+.gol-hashlife-simple-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.gol-hashlife-preset-field {
+  width: min(320px, 100%);
+  margin: 0;
+  --mat-form-field-container-height: 40px;
+  --mat-form-field-container-vertical-padding: 8px;
+  --mat-form-field-outline-color: var(--gol-engine-border);
+  --mat-form-field-focus-outline-color: var(--gol-engine-focus);
+}
+
+:host ::ng-deep .gol-hashlife-preset-field .mdc-text-field--outlined {
+  background: rgba(7, 20, 35, 0.65);
+}
+
+:host ::ng-deep .gol-hashlife-preset-field .mat-mdc-form-field-subscript-wrapper {
+  display: none;
+}
+
+:host ::ng-deep .gol-hashlife-preset-field .mat-mdc-select-value-text,
+:host ::ng-deep .gol-hashlife-preset-field .mat-mdc-form-field-label {
+  color: var(--gol-text-primary) !important;
+}
+
+:host ::ng-deep .gol-hashlife-preset-field .mat-mdc-select-arrow {
+  color: var(--gol-engine-focus);
+}
+
+.gol-hashlife-helper {
+  flex: 1 1 320px;
+  font-size: 0.76rem;
+  color: var(--gol-text-secondary);
+  border: 1px dashed rgba(120, 190, 255, 0.35);
+  border-radius: 8px;
+  padding: 6px 10px;
+  background: rgba(80, 140, 210, 0.08);
+}
+
 .gol-hashlife-controls {
   display: flex;
   align-items: center;
@@ -433,6 +477,12 @@
 .gol-hashlife-leap-btn {
   color: var(--gol-text-secondary) !important;
   border-color: var(--gol-panel-border) !important;
+  font-size: 0.74rem;
+}
+
+.gol-hashlife-leap-hint {
+  width: 100%;
+  color: var(--gol-text-muted);
   font-size: 0.74rem;
 }
 
@@ -1020,6 +1070,19 @@
   .gol-hashlife-mode {
     flex-wrap: wrap;
     width: 100%;
+  }
+
+  .gol-hashlife-simple-controls {
+    width: 100%;
+    align-items: flex-start;
+  }
+
+  .gol-hashlife-preset-field {
+    width: 100%;
+  }
+
+  .gol-hashlife-helper {
+    flex-basis: 100%;
   }
 
   .gol-jump-size-row {

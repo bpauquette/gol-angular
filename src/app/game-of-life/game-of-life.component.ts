@@ -31,6 +31,16 @@ interface HashlifeShowcasePattern {
   cells: { x: number; y: number }[];
 }
 
+type HashlifePresetId = 'inspect' | 'balanced' | 'fast_forward';
+
+interface HashlifePreset {
+  id: HashlifePresetId;
+  label: string;
+  hint: string;
+  runMode: HashlifeRunMode;
+  exponent: number;
+}
+
 interface PhotosensitivityProbeMetrics {
   elapsedMs: number;
   frameCount: number;
@@ -52,6 +62,8 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
   generationBatchSize = 16;
   hashlifeRunMode: HashlifeRunMode = 'cruise';
   hashlifeSkipExponent = 7;
+  hashlifePresetId: HashlifePresetId = 'balanced';
+  showHashlifeAdvanced = false;
   hashlifeAdvancedSinceRender = 0;
   hashlifeWorkerElapsedMs = 0;
   hashlifeWorkerUsed = true;
@@ -60,6 +72,29 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
   hashlifeLeapEtaSeconds: number | null = null;
   hashlifeThroughputGps = 0;
   readonly hashlifeQuickTargets = [10_000, 100_000, 1_000_000];
+  readonly hashlifePresets: HashlifePreset[] = [
+    {
+      id: 'inspect',
+      label: 'Inspect (small jumps)',
+      hint: 'Best for understanding behavior with frequent redraws and smaller generation jumps.',
+      runMode: 'explore',
+      exponent: 4
+    },
+    {
+      id: 'balanced',
+      label: 'Balanced (recommended)',
+      hint: 'Best default: fast enough to progress while still readable during normal exploration.',
+      runMode: 'cruise',
+      exponent: 7
+    },
+    {
+      id: 'fast_forward',
+      label: 'Fast-forward (large jumps)',
+      hint: 'Best for long leaps (10K+ generations) where speed matters more than frame-by-frame detail.',
+      runMode: 'warp',
+      exponent: 11
+    }
+  ];
   readonly hashlifeShowcasePatterns: HashlifeShowcasePattern[] = [
     {
       id: 'acorn',
@@ -224,6 +259,7 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
   private readonly idleDimDelayMs = 45000;
   private readonly shiftIntervalMs = 18000;
   private readonly uiDebugLogsEnabled = true;
+  private hasShownHashlifeGuidance = false;
 
   shapePalette = [
     { name: 'glider', cells: [{x:0,y:1},{x:1,y:2},{x:2,y:0},{x:2,y:1},{x:2,y:2}] },
@@ -309,8 +345,14 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     }));
     this.subscriptions.add(this.runtime.engineMode$.subscribe(mode => this.engineMode = mode));
     this.subscriptions.add(this.runtime.generationBatchSize$.subscribe(size => this.generationBatchSize = size));
-    this.subscriptions.add(this.runtime.hashlifeRunMode$.subscribe(mode => this.hashlifeRunMode = mode));
-    this.subscriptions.add(this.runtime.hashlifeSkipExponent$.subscribe(exponent => this.hashlifeSkipExponent = exponent));
+    this.subscriptions.add(this.runtime.hashlifeRunMode$.subscribe(mode => {
+      this.hashlifeRunMode = mode;
+      this.syncHashlifePresetFromState();
+    }));
+    this.subscriptions.add(this.runtime.hashlifeSkipExponent$.subscribe(exponent => {
+      this.hashlifeSkipExponent = exponent;
+      this.syncHashlifePresetFromState();
+    }));
     this.subscriptions.add(this.runtime.hashlifeTelemetry$.subscribe(telemetry => {
       this.hashlifeAdvancedSinceRender = telemetry.advancedSinceRender;
       this.hashlifeWorkerElapsedMs = telemetry.workerElapsedMs;
@@ -411,6 +453,7 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
 
   onEngineModeChange(mode: EngineMode | string) {
     const normalized: EngineMode = mode === 'hashlife' ? 'hashlife' : 'normal';
+    const enteringHashlife = this.engineMode !== 'hashlife' && normalized === 'hashlife';
     this.logUi('engine.select', {
       from: this.engineMode,
       to: normalized,
@@ -423,6 +466,16 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     }
     this.engineMode = normalized;
     this.runtime.setEngineMode(normalized);
+    if (enteringHashlife) {
+      this.syncHashlifePresetFromState();
+      if (!this.hasShownHashlifeGuidance) {
+        this.hasShownHashlifeGuidance = true;
+        this.showCheckpointNotice(
+          'HashLife is optimized for big jumps and long milestones. Use Normal mode for detailed frame-by-frame editing.',
+          true
+        );
+      }
+    }
   }
 
   onGenerationBatchSizeChange(value: any) {
@@ -439,6 +492,7 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     if (this.hashlifeRunMode === normalized) return;
     this.hashlifeRunMode = normalized;
     this.runtime.setHashlifeRunMode(normalized);
+    this.syncHashlifePresetFromState();
   }
 
   onHashlifeSkipExponentChange(exponent: number) {
@@ -451,6 +505,29 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     if (this.hashlifeSkipExponent === normalized) return;
     this.hashlifeSkipExponent = normalized;
     this.runtime.setHashlifeSkipExponent(normalized);
+    this.syncHashlifePresetFromState();
+  }
+
+  onHashlifePresetChange(presetId: HashlifePresetId | string) {
+    const preset = this.getHashlifePresetById(presetId);
+    this.logUi('hashlife.preset.select', {
+      from: this.hashlifePresetId,
+      to: preset.id,
+      runMode: preset.runMode,
+      exponent: preset.exponent
+    });
+    this.hashlifePresetId = preset.id;
+    this.onHashlifeRunModeChange(preset.runMode);
+    this.onHashlifeSkipExponentChange(preset.exponent);
+  }
+
+  toggleHashlifeAdvanced() {
+    this.showHashlifeAdvanced = !this.showHashlifeAdvanced;
+    this.logUi('hashlife.advanced.toggle', { open: this.showHashlifeAdvanced });
+  }
+
+  get hashlifePresetHint() {
+    return this.getHashlifePresetById(this.hashlifePresetId).hint;
   }
 
   adjustHashlifeSkipExponent(delta: number) {
@@ -1839,6 +1916,31 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     } else {
       this.hashlifeLeapEtaSeconds = null;
     }
+  }
+
+  private syncHashlifePresetFromState() {
+    const exact = this.hashlifePresets.find(
+      preset => preset.runMode === this.hashlifeRunMode && preset.exponent === this.hashlifeSkipExponent
+    );
+    if (exact) {
+      this.hashlifePresetId = exact.id;
+      return;
+    }
+
+    if (this.hashlifeRunMode === 'warp' || this.hashlifeSkipExponent >= 10) {
+      this.hashlifePresetId = 'fast_forward';
+      return;
+    }
+    if (this.hashlifeRunMode === 'explore' || this.hashlifeSkipExponent <= 5) {
+      this.hashlifePresetId = 'inspect';
+      return;
+    }
+    this.hashlifePresetId = 'balanced';
+  }
+
+  private getHashlifePresetById(presetId: HashlifePresetId | string) {
+    const normalized = String(presetId || '').trim();
+    return this.hashlifePresets.find(preset => preset.id === normalized) || this.hashlifePresets[1];
   }
 
   private parseGenerationInput(value: string) {
