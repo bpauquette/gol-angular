@@ -442,7 +442,7 @@ export class ScriptPlaygroundService {
   private readonly languageReference: string[] = [
     'Commands:',
     'PENDOWN, PENUP, GOTO x y, RECT w h, CLEAR',
-    'STEP n, START, STOP, CAPTURE name',
+    'STEP n, START, STOP, CAPTURE name, EXPECT condition',
     'PRINT expr, COUNT varName, LABEL expr, UNTIL_STEADY varName maxSteps',
     '',
     'Control flow:',
@@ -458,7 +458,8 @@ export class ScriptPlaygroundService {
     'Notes:',
     '- Lines starting with # are comments.',
     '- Use END to close IF/WHILE/FOR blocks.',
-    '- UNTIL_STEADY writes metadata: name_mode, name_period, name_dx, name_dy, name_confidence.'
+    '- UNTIL_STEADY writes metadata: name_mode, name_period, name_dx, name_dy, name_confidence.',
+    '- EXPECT fails script execution immediately when a condition is false.'
   ];
 
   getTemplates() {
@@ -476,6 +477,35 @@ export class ScriptPlaygroundService {
   findTemplate(templateId: string | null | undefined) {
     if (!templateId) return null;
     return this.templates.find((item) => item.id === templateId) || null;
+  }
+
+  classifyPattern(
+    cells: Cell[],
+    maxSteps = 256,
+    config: UntilSteadyDetectorConfig = {}
+  ): UntilSteadyDetection {
+    const detector = new UntilSteadyHeuristicDetector(config);
+    let current = this.toCellKeySet(cells);
+    const budget = Math.max(1, Math.floor(Number(maxSteps) || 1));
+
+    const initial = detector.observe(0, current);
+    if (initial) return initial;
+
+    for (let step = 1; step <= budget; step += 1) {
+      current = this.stepCellKeySet(current);
+      const detected = detector.observe(step, current);
+      if (detected) return detected;
+    }
+
+    return {
+      mode: 'inconclusive',
+      step: budget,
+      period: -1,
+      dx: 0,
+      dy: 0,
+      confidence: 0,
+      reason: 'max steps exhausted before confident detection'
+    };
   }
 
   async runScript(scriptCode: string, context: ScriptExecutionContext): Promise<ScriptRunResult> {
@@ -684,7 +714,6 @@ export class ScriptPlaygroundService {
         currentAction = 'START';
         runStateIntent = 'running';
         consume(1);
-        emitLog('START intent recorded: runtime will be running after script ends.');
         return;
       }
 
@@ -692,7 +721,6 @@ export class ScriptPlaygroundService {
         currentAction = 'STOP';
         runStateIntent = 'paused';
         consume(1);
-        emitLog('STOP intent recorded: runtime will remain paused after script ends.');
         return;
       }
 
@@ -728,6 +756,19 @@ export class ScriptPlaygroundService {
         const label = this.evalExpr(labelMatch[1], state);
         emitLog(`LABEL (${state.x},${state.y}): ${String(label)}`);
         consume(1);
+        return;
+      }
+
+      const expectMatch = line.match(/^EXPECT\s+(.+)$/i);
+      if (expectMatch) {
+        currentAction = 'EXPECT';
+        const condition = String(expectMatch[1] || '').trim();
+        const passed = this.evalCondCompound(condition, state);
+        consume(1);
+        if (!passed) {
+          throw new Error(`EXPECT failed: ${condition}`);
+        }
+        emitLog(`EXPECT passed: ${condition}`);
         return;
       }
 
@@ -859,6 +900,42 @@ export class ScriptPlaygroundService {
       blocks.push({ line, indent, idx: i });
     }
     return blocks;
+  }
+
+  private toCellKeySet(cells: Cell[]): Set<string> {
+    const set = new Set<string>();
+    for (const cell of cells || []) {
+      const x = Math.floor(Number(cell?.x));
+      const y = Math.floor(Number(cell?.y));
+      if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+      set.add(`${x},${y}`);
+    }
+    return set;
+  }
+
+  private stepCellKeySet(source: Set<string>): Set<string> {
+    const neighborCounts = new Map<string, number>();
+    for (const key of source) {
+      const [xText, yText] = key.split(',');
+      const x = Number(xText);
+      const y = Number(yText);
+      if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+      for (let dx = -1; dx <= 1; dx += 1) {
+        for (let dy = -1; dy <= 1; dy += 1) {
+          if (dx === 0 && dy === 0) continue;
+          const neighborKey = `${x + dx},${y + dy}`;
+          neighborCounts.set(neighborKey, (neighborCounts.get(neighborKey) || 0) + 1);
+        }
+      }
+    }
+
+    const next = new Set<string>();
+    for (const [key, count] of neighborCounts.entries()) {
+      if (count === 3 || (count === 2 && source.has(key))) {
+        next.add(key);
+      }
+    }
+    return next;
   }
 
   private findControlBlockEnd(blocks: Block[], startIndex: number, opener: RegExp) {

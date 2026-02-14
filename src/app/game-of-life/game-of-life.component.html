@@ -701,7 +701,7 @@
               <h3>Scripting Quickstart</h3>
               <ul>
                 <li>Open Script Playground (`K`) and load a template.</li>
-                <li>Use DSL commands like `PENDOWN`, `GOTO`, `RECT`, `STEP`, and `UNTIL_STEADY`.</li>
+                <li>Use DSL commands like `PENDOWN`, `GOTO`, `RECT`, `STEP`, `UNTIL_STEADY`, and `EXPECT` assertions.</li>
                 <li>Click Run & Watch to close the panel and follow live progress in the HUD.</li>
                 <li>Use the HUD Stop button any time to cancel a long run.</li>
               </ul>
@@ -803,6 +803,32 @@
         <div class="gol-script-runtime-action" *ngIf="scriptProgressAction">{{ scriptProgressAction }}</div>
         <div class="gol-script-runtime-actions">
           <button mat-button type="button" (click)="openScriptLogDialog()">View Logs ({{ scriptDebugLog.length }})</button>
+          <button mat-button type="button" (click)="classifyCurrentPattern()" [disabled]="scriptRunning || scriptClassifierBusy">
+            {{ scriptClassifierBusy ? 'Classifying...' : ('Classify Pattern (' + scriptClassifierMaxSteps + ' steps)') }}
+          </button>
+        </div>
+        <div class="gol-script-classifier">
+          <div class="gol-script-classifier-head">
+            <span class="gol-script-classifier-title">Pattern Classifier</span>
+            <span class="gol-script-classifier-pill" [class.ok]="scriptClassifier && scriptClassifier.mode !== 'inconclusive'" [class.warn]="scriptClassifier?.mode === 'periodic-with-emission'" [class.idle]="!scriptClassifier || scriptClassifier.mode === 'inconclusive'">
+              {{ formatClassifierMode(scriptClassifier?.mode || 'inconclusive') }}
+            </span>
+          </div>
+          <div class="gol-dialog-error" *ngIf="scriptClassifierError">{{ scriptClassifierError }}</div>
+          <div class="gol-script-classifier-empty" *ngIf="!scriptClassifier && !scriptClassifierError">
+            Run classifier to label current pattern and estimate period/displacement.
+          </div>
+          <div class="gol-script-classifier-grid" *ngIf="scriptClassifier">
+            <div><span>Mode</span><strong>{{ formatClassifierMode(scriptClassifier.mode) }}</strong></div>
+            <div><span>Period</span><strong>{{ scriptClassifier.period > 0 ? scriptClassifier.period : 'n/a' }}</strong></div>
+            <div><span>dx</span><strong>{{ scriptClassifier.dx }}</strong></div>
+            <div><span>dy</span><strong>{{ scriptClassifier.dy }}</strong></div>
+            <div><span>Confidence</span><strong>{{ scriptClassifier.confidence }}</strong></div>
+            <div><span>Detected At</span><strong>step {{ scriptClassifier.step }}</strong></div>
+            <div><span>Generation</span><strong>{{ scriptClassifierGeneration ?? generation }}</strong></div>
+            <div><span>Population</span><strong>{{ scriptClassifierPopulation ?? liveCells.length }}</strong></div>
+          </div>
+          <div class="gol-script-classifier-reason" *ngIf="scriptClassifier?.reason">{{ scriptClassifier.reason }}</div>
         </div>
       </div>
 

@@ -178,6 +178,67 @@ describe('ScriptPlaygroundService', () => {
     expect(result.output).toContain('-1');
     expect(result.output).toContain('inconclusive');
   });
+
+  it('supports EXPECT assertions when conditions pass', async () => {
+    const result = await service.runScript([
+      'CLEAR',
+      'PENDOWN',
+      'RECT 2 2',
+      'UNTIL_STEADY probe 20',
+      'EXPECT probe_mode == "still-life"',
+      'EXPECT probe_period == 1',
+      'PRINT "assertok"'
+    ].join('\n'), createContext());
+
+    expect(result.output).toContain('assertok');
+    expect(result.output).toContain('EXPECT passed: probe_mode == "still-life"');
+  });
+
+  it('fails script execution when EXPECT assertion fails', async () => {
+    await expectAsync(service.runScript([
+      'CLEAR',
+      'PENDOWN',
+      'RECT 2 2',
+      'UNTIL_STEADY probe 20',
+      'EXPECT probe_mode == "spaceship"'
+    ].join('\n'), createContext())).toBeRejectedWithError(/EXPECT failed/i);
+  });
+
+  it('classifies still-life and spaceship patterns from current cells', () => {
+    const still = service.classifyPattern([
+      { x: 0, y: 0 },
+      { x: 1, y: 0 },
+      { x: 0, y: 1 },
+      { x: 1, y: 1 }
+    ], 32);
+    expect(still.mode).toBe('still-life');
+    expect(still.period).toBe(1);
+
+    const ship = service.classifyPattern([
+      { x: 1, y: 0 },
+      { x: 2, y: 1 },
+      { x: 0, y: 2 },
+      { x: 1, y: 2 },
+      { x: 2, y: 2 }
+    ], 48);
+    expect(ship.mode).toBe('spaceship');
+    expect(ship.period).toBe(4);
+    expect(ship.dx).toBe(1);
+    expect(ship.dy).toBe(1);
+  });
+
+  it('returns inconclusive when classifier budget is too small', () => {
+    const result = service.classifyPattern([
+      { x: 1, y: 0 },
+      { x: 2, y: 1 },
+      { x: 0, y: 2 },
+      { x: 1, y: 2 },
+      { x: 2, y: 2 }
+    ], 1);
+
+    expect(result.mode).toBe('inconclusive');
+    expect(result.period).toBe(-1);
+  });
 });
 
 describe('UntilSteadyHeuristicDetector', () => {

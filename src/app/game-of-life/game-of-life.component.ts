@@ -16,6 +16,8 @@ import { ShapeImportService } from '../services/shape-import.service';
 import { ScriptCatalogService, ScriptItem } from '../services/script-catalog.service';
 import {
   ScriptProgressEvent,
+  UntilSteadyDetection,
+  UntilSteadyMode,
   ScriptPlaygroundService,
   ScriptTemplate
 } from '../services/script-playground.service';
@@ -214,6 +216,12 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
   scriptElapsedMs = 0;
   scriptDebugLog: string[] = [];
   scriptLastRunId: string | null = null;
+  scriptClassifierBusy = false;
+  scriptClassifierError: string | null = null;
+  scriptClassifierMaxSteps = 256;
+  scriptClassifierGeneration: number | null = null;
+  scriptClassifierPopulation: number | null = null;
+  scriptClassifier: UntilSteadyDetection | null = null;
 
   showStatisticsDialog = false;
   showAccountDialog = false;
@@ -1290,6 +1298,9 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
   openScriptPlayground() {
     this.showScriptDialog = true;
     this.scriptActiveTab = 'editor';
+    this.showScriptLogDialog = false;
+    this.scriptError = null;
+    this.scriptOutput = '';
     if (!this.selectedScriptTemplateId && this.scriptTemplates.length > 0) {
       this.selectedScriptTemplateId = this.scriptTemplates[0].id;
     }
@@ -1301,6 +1312,7 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
 
   closeScriptPlayground() {
     this.showScriptDialog = false;
+    this.showScriptLogDialog = false;
     this.scriptError = null;
   }
 
@@ -1409,6 +1421,42 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     this.scriptDebugLog = [];
   }
 
+  classifyCurrentPattern() {
+    if (this.scriptClassifierBusy) return;
+    this.scriptClassifierBusy = true;
+    this.scriptClassifierError = null;
+
+    try {
+      const result = this.scriptPlayground.classifyPattern(this.liveCells, this.scriptClassifierMaxSteps);
+      this.scriptClassifier = result;
+      this.scriptClassifierGeneration = this.generation;
+      this.scriptClassifierPopulation = this.liveCells.length;
+      this.pushScriptLog(`Classifier: mode=${result.mode} period=${result.period} dx=${result.dx} dy=${result.dy} confidence=${result.confidence}`);
+    } catch (error: any) {
+      const message = String(error?.message || 'Classifier failed.');
+      this.scriptClassifierError = message;
+      this.pushScriptLog(`Classifier failed: ${message}`);
+    } finally {
+      this.scriptClassifierBusy = false;
+    }
+  }
+
+  formatClassifierMode(mode: UntilSteadyMode | null | undefined) {
+    switch (mode) {
+      case 'still-life':
+        return 'Still Life';
+      case 'oscillator':
+        return 'Oscillator';
+      case 'spaceship':
+        return 'Spaceship';
+      case 'periodic-with-emission':
+        return 'Emitter / Gun-like';
+      case 'inconclusive':
+      default:
+        return 'Inconclusive';
+    }
+  }
+
   cancelScriptRun() {
     if (!this.scriptRunning || !this.scriptAbortController) return;
     this.scriptCancelRequested = true;
@@ -1429,6 +1477,7 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     this.scriptProgressAction = 'Preparing script runtime...';
     this.scriptOperationCount = 0;
     this.scriptElapsedMs = 0;
+    this.scriptClassifierError = null;
     const startedAtMs = Date.now();
     const scriptLabel = String(this.scriptName || 'Script').trim() || 'Script';
     this.pushScriptLog(`Run started: ${scriptLabel}`);
@@ -1452,8 +1501,17 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
       this.scriptElapsedMs = result.durationMs;
       this.scriptProgressPercent = 100;
       this.scriptProgressAction = 'Script completed.';
-      this.scriptOutput = `${result.output}\nGeneration: ${result.generation}\nLive Cells: ${result.liveCellCount}\nOperations: ${result.operationCount}\nDuration: ${result.durationMs} ms`;
+      const summaryLines = [
+        `Run ID: ${result.runId}`,
+        `Generation: ${result.generation}`,
+        `Live Cells: ${result.liveCellCount}`,
+        `Operations: ${result.operationCount}`,
+        `Duration: ${result.durationMs} ms`,
+        `Log lines: ${result.logs.length} (open View Logs for details)`
+      ];
+      this.scriptOutput = summaryLines.join('\n');
       this.pushScriptLog(`Run completed in ${result.durationMs} ms. (Run ID: ${result.runId})`);
+      this.classifyCurrentPattern();
       if (result.runStateIntent === 'running') {
         this.runtime.start();
       } else if (result.runStateIntent === 'paused') {
@@ -1498,6 +1556,8 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
   private pushScriptLog(line: string) {
     const message = String(line || '').trim();
     if (!message) return;
+    // Ignore legacy intent spam from older builds.
+    if (/^(START|STOP) intent recorded:/i.test(message)) return;
     const stamped = `[${new Date().toLocaleTimeString()}] ${message}`;
     this.scriptDebugLog = [stamped, ...this.scriptDebugLog].slice(0, 160);
   }
