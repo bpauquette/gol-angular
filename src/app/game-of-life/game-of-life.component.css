@@ -967,6 +967,192 @@
   white-space: pre-wrap;
 }
 
+.gol-script-runtime {
+  border: 1px solid rgba(120, 190, 255, 0.35);
+  border-radius: 10px;
+  padding: 10px;
+  background: rgba(12, 35, 62, 0.58);
+  margin-bottom: 8px;
+}
+
+.gol-script-runtime.running {
+  border-color: rgba(132, 244, 183, 0.55);
+  box-shadow: 0 0 0 1px rgba(132, 244, 183, 0.18) inset;
+}
+
+.gol-script-runtime-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.gol-script-runtime-title {
+  color: var(--gol-text-secondary);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.gol-script-run-pill {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(161, 186, 223, 0.55);
+  border-radius: 999px;
+  padding: 2px 9px;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #dbe9ff;
+  background: rgba(58, 79, 114, 0.55);
+}
+
+.gol-script-run-pill.ok {
+  border-color: rgba(120, 240, 175, 0.62);
+  color: #d8ffe9;
+  background: rgba(18, 69, 48, 0.64);
+}
+
+.gol-script-run-pill.error {
+  border-color: rgba(255, 132, 132, 0.62);
+  color: #ffe2e2;
+  background: rgba(92, 28, 34, 0.62);
+}
+
+.gol-script-run-pill.canceled {
+  border-color: rgba(255, 208, 120, 0.62);
+  color: #ffe8bc;
+  background: rgba(89, 56, 16, 0.62);
+}
+
+.gol-script-progress-track {
+  margin-top: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(20, 43, 70, 0.92);
+  border: 1px solid rgba(121, 171, 226, 0.35);
+  overflow: hidden;
+}
+
+.gol-script-progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  width: 0%;
+  background: linear-gradient(90deg, #5db0ff 0%, #7df0c2 100%);
+  transition: width 140ms ease-out;
+}
+
+.gol-script-runtime-stats {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: var(--gol-text-secondary);
+  font-size: 0.73rem;
+}
+
+.gol-script-runtime-action {
+  margin-top: 4px;
+  color: #d3e8ff;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.gol-script-snippet-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 8px 0 4px;
+}
+
+.gol-script-snippet-row button {
+  min-width: 0;
+}
+
+.gol-script-console {
+  margin-top: 9px;
+  border: 1px solid rgba(120, 190, 255, 0.25);
+  border-radius: 8px;
+  background: rgba(5, 14, 25, 0.72);
+  padding: 8px;
+  max-height: 240px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gol-script-console-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--gol-text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.gol-script-console-empty {
+  color: var(--gol-text-muted);
+  font-size: 0.75rem;
+}
+
+.gol-script-console code {
+  display: block;
+  color: #b8dcff;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.gol-script-history {
+  margin-top: 10px;
+  border: 1px solid var(--gol-panel-border);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(6, 16, 29, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.gol-script-history-empty {
+  color: var(--gol-text-muted);
+  font-size: 0.74rem;
+}
+
+.gol-script-history-item {
+  border: 1px solid rgba(121, 171, 226, 0.2);
+  border-radius: 8px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.gol-script-history-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.gol-script-run-name {
+  color: var(--gol-text-primary);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.gol-script-history-meta {
+  margin-top: 4px;
+  color: var(--gol-text-secondary);
+  font-size: 0.72rem;
+}
+
+.gol-script-history-summary {
+  margin-top: 3px;
+  color: var(--gol-text-muted);
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
 .gol-stats-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1121,6 +1307,10 @@
 @media (max-width: 860px) {
   .gol-script-grid {
     grid-template-columns: 1fr;
+  }
+
+  .gol-script-console {
+    max-height: 180px;
   }
 
   .gol-stats-grid {

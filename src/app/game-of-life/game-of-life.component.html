@@ -747,36 +747,36 @@
               <div class="gol-script-left">
                 <mat-form-field appearance="fill" class="gol-dialog-field">
                   <mat-label>Script Library</mat-label>
-                  <mat-select [ngModel]="selectedScriptId" (ngModelChange)="loadScriptFromLibrary($event)">
+                  <mat-select [ngModel]="selectedScriptId" (ngModelChange)="loadScriptFromLibrary($event)" [disabled]="scriptRunning">
                     <mat-option *ngFor="let script of myScripts" [value]="script.id">{{ script.name }}</mat-option>
                   </mat-select>
                 </mat-form-field>
 
-                <button mat-stroked-button class="gol-script-button" (click)="refreshScriptLibrary()" [disabled]="scriptsLoading">
+                <button mat-stroked-button class="gol-script-button" (click)="refreshScriptLibrary()" [disabled]="scriptsLoading || scriptRunning">
                   {{ scriptsLoading ? 'Refreshing...' : 'Refresh Library' }}
                 </button>
-                <button mat-stroked-button class="gol-script-button" (click)="deleteSelectedScript()" [disabled]="!selectedScriptId">
+                <button mat-stroked-button class="gol-script-button" (click)="deleteSelectedScript()" [disabled]="!selectedScriptId || scriptRunning">
                   Delete Selected
                 </button>
-                <mat-checkbox [(ngModel)]="scriptIsPublic" [disabled]="!isLoggedIn">Save as public</mat-checkbox>
+                <mat-checkbox [(ngModel)]="scriptIsPublic" [disabled]="!isLoggedIn || scriptRunning">Save as public</mat-checkbox>
 
                 <mat-divider></mat-divider>
 
                 <mat-form-field appearance="fill" class="gol-dialog-field">
                   <mat-label>Template Starter</mat-label>
-                  <mat-select [(ngModel)]="selectedScriptTemplateId">
+                  <mat-select [(ngModel)]="selectedScriptTemplateId" [disabled]="scriptRunning">
                     <mat-option *ngFor="let template of scriptTemplates" [value]="template.id">
                       {{ template.name }} ({{ template.difficulty }})
                     </mat-option>
                   </mat-select>
                 </mat-form-field>
-                <button mat-stroked-button class="gol-script-button" (click)="applySelectedScriptTemplate()">
+                <button mat-stroked-button class="gol-script-button" (click)="applySelectedScriptTemplate()" [disabled]="scriptRunning">
                   Load Template
                 </button>
 
                 <mat-form-field appearance="fill" class="gol-dialog-field">
                   <mat-label>Max Script Operations</mat-label>
-                  <input matInput type="number" min="1000" step="1000" [(ngModel)]="scriptMaxOperations">
+                  <input matInput type="number" min="1000" step="1000" [(ngModel)]="scriptMaxOperations" [disabled]="scriptRunning">
                 </mat-form-field>
 
                 <div class="gol-learning-panels">
@@ -787,6 +787,7 @@
                     type="button"
                     *ngFor="let panel of scriptLearningPanels"
                     (click)="applyLearningTemplate(panel.id)"
+                    [disabled]="scriptRunning"
                   >
                     <span class="gol-learning-card-title">{{ panel.title }} · {{ panel.audience }}</span>
                     <span class="gol-learning-card-focus">{{ panel.focus }}</span>
@@ -799,27 +800,79 @@
                   <code *ngFor="let line of scriptApiReference">{{ line }}</code>
                 </div>
 
+                <div class="gol-script-history">
+                  <div class="gol-learning-title">Recent Runs</div>
+                  <div class="gol-script-history-empty" *ngIf="scriptRunHistory.length === 0">No runs yet.</div>
+                  <div class="gol-script-history-item" *ngFor="let run of scriptRunHistory">
+                    <div class="gol-script-history-head">
+                      <span class="gol-script-run-pill" [class.ok]="run.status === 'ok'" [class.error]="run.status === 'error'" [class.canceled]="run.status === 'canceled'">
+                        {{ run.status }}
+                      </span>
+                      <span class="gol-script-run-name">{{ run.name }}</span>
+                    </div>
+                    <div class="gol-script-history-meta">{{ run.operationCount | number }} ops · {{ run.durationMs | number }} ms</div>
+                    <div class="gol-script-history-summary">{{ run.summary }}</div>
+                  </div>
+                </div>
+
                 <div class="gol-dialog-error" *ngIf="scriptsError">{{ scriptsError }}</div>
               </div>
 
               <div class="gol-script-right">
                 <mat-form-field appearance="fill" class="gol-dialog-field">
                   <mat-label>Script Name</mat-label>
-                  <input matInput [(ngModel)]="scriptName" maxlength="140">
+                  <input matInput [(ngModel)]="scriptName" maxlength="140" [disabled]="scriptRunning">
                 </mat-form-field>
+
+                <div class="gol-script-runtime" [class.running]="scriptRunning">
+                  <div class="gol-script-runtime-head">
+                    <span class="gol-script-runtime-title">Runtime</span>
+                    <span class="gol-script-run-pill" [class.ok]="!scriptRunning && !scriptError" [class.error]="!!scriptError" [class.canceled]="scriptCancelRequested && scriptRunning">
+                      {{ scriptRunning ? (scriptCancelRequested ? 'canceling' : 'running') : (scriptError ? 'error' : 'idle') }}
+                    </span>
+                  </div>
+                  <div class="gol-script-progress-track" role="progressbar" [attr.aria-valuenow]="scriptProgressPercent" aria-valuemin="0" aria-valuemax="100">
+                    <div class="gol-script-progress-fill" [style.width.%]="scriptProgressPercent"></div>
+                  </div>
+                  <div class="gol-script-runtime-stats">
+                    <span>{{ scriptProgressPercent | number:'1.0-0' }}%</span>
+                    <span>{{ scriptOperationCount | number }} ops</span>
+                    <span>{{ scriptElapsedMs | number }} ms</span>
+                  </div>
+                  <div class="gol-script-runtime-action" *ngIf="scriptProgressAction">{{ scriptProgressAction }}</div>
+                </div>
+
+                <div class="gol-script-snippet-row">
+                  <button mat-stroked-button type="button" (click)="appendScriptSnippet('api.stamp(\'glider\', 0, 0);')" [disabled]="scriptRunning">+ Glider</button>
+                  <button mat-stroked-button type="button" (click)="appendScriptSnippet('api.randomRect(-20, -12, 40, 24, 0.33);')" [disabled]="scriptRunning">+ Random Lab</button>
+                  <button mat-stroked-button type="button" (click)="appendScriptSnippet('for (let i = 0; i < 4; i += 1) { api.stamp(\'lwss\', -24 + i * 12, -4 + i); }')" [disabled]="scriptRunning">+ Fleet Loop</button>
+                </div>
+
                 <mat-form-field appearance="fill" class="gol-dialog-field">
                   <mat-label>Script Code</mat-label>
-                  <textarea matInput rows="14" [(ngModel)]="scriptCode"></textarea>
+                  <textarea matInput rows="14" [(ngModel)]="scriptCode" [disabled]="scriptRunning"></textarea>
                 </mat-form-field>
                 <div class="gol-dialog-error" *ngIf="scriptError">{{ scriptError }}</div>
                 <div class="gol-script-output" *ngIf="scriptOutput">{{ scriptOutput }}</div>
+
+                <div class="gol-script-console">
+                  <div class="gol-script-console-head">
+                    <span>Execution Console</span>
+                    <button mat-button type="button" (click)="clearScriptConsole()" [disabled]="scriptRunning || scriptDebugLog.length === 0">Clear</button>
+                  </div>
+                  <div class="gol-script-console-empty" *ngIf="scriptDebugLog.length === 0">Run a script to see logs.</div>
+                  <code *ngFor="let line of scriptDebugLog">{{ line }}</code>
+                </div>
               </div>
             </div>
           </div>
           <div class="gol-dialog-actions">
             <button mat-button (click)="closeScriptPlayground()">Close</button>
-            <button mat-stroked-button color="primary" (click)="saveCurrentScript()">Save Script</button>
-            <button mat-raised-button color="primary" (click)="runScript()">Run Script</button>
+            <button mat-stroked-button color="primary" (click)="saveCurrentScript()" [disabled]="scriptRunning">Save Script</button>
+            <button mat-stroked-button color="warn" (click)="cancelScriptRun()" [disabled]="!scriptRunning">Cancel Run</button>
+            <button mat-raised-button color="primary" (click)="runScript()" [disabled]="scriptRunning">
+              {{ scriptRunning ? (scriptCancelRequested ? 'Canceling...' : 'Running...') : 'Run Script' }}
+            </button>
           </div>
         </div>
       </div>

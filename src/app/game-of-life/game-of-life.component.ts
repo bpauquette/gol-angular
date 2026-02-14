@@ -16,6 +16,7 @@ import { ShapeImportService } from '../services/shape-import.service';
 import { ScriptCatalogService, ScriptItem } from '../services/script-catalog.service';
 import {
   ScriptLearningPanel,
+  ScriptProgressEvent,
   ScriptPlaygroundService,
   ScriptTemplate
 } from '../services/script-playground.service';
@@ -50,6 +51,15 @@ interface PhotosensitivityProbeMetrics {
   flashRateHz: number;
   peakChangedAreaRatio: number;
   peakGlobalLumaDelta: number;
+}
+
+interface ScriptRunHistoryItem {
+  startedAt: string;
+  name: string;
+  status: 'ok' | 'error' | 'canceled';
+  operationCount: number;
+  durationMs: number;
+  summary: string;
 }
 
 @Component({
@@ -205,6 +215,14 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
   scriptLearningPanels: ScriptLearningPanel[] = [];
   scriptApiReference: string[] = [];
   scriptMaxOperations = 250000;
+  scriptRunning = false;
+  scriptCancelRequested = false;
+  scriptProgressPercent = 0;
+  scriptProgressAction = '';
+  scriptOperationCount = 0;
+  scriptElapsedMs = 0;
+  scriptDebugLog: string[] = [];
+  scriptRunHistory: ScriptRunHistoryItem[] = [];
 
   showStatisticsDialog = false;
   showAccountDialog = false;
@@ -292,6 +310,7 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
   private shapeHydrationSub?: Subscription;
   private readonly recentsStorageKey = 'gol.recentShapes.v1';
   private removeShortcutListeners: (() => void) | null = null;
+  private scriptAbortController: AbortController | null = null;
 
   constructor(
     private tools: ToolsService,
@@ -426,6 +445,10 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    if (this.scriptAbortController) {
+      this.scriptAbortController.abort();
+      this.scriptAbortController = null;
+    }
     this.runtime.pause();
     this.stopIphoneMitigationTimers();
     this.clearCheckpointNoticeTimer();
@@ -1290,6 +1313,13 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     this.applyScriptTemplate(this.selectedScriptTemplateId);
   }
 
+  appendScriptSnippet(snippet: string) {
+    const next = String(snippet || '').trim();
+    if (!next) return;
+    const current = String(this.scriptCode || '').replace(/\s+$/, '');
+    this.scriptCode = current ? `${current}\n${next}\n` : `${next}\n`;
+  }
+
   applyLearningTemplate(panelId: string) {
     const panel = this.scriptLearningPanels.find((item) => item.id === panelId);
     if (!panel) return;
@@ -1381,23 +1411,101 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     }
   }
 
+  clearScriptConsole() {
+    this.scriptDebugLog = [];
+  }
+
+  cancelScriptRun() {
+    if (!this.scriptRunning || !this.scriptAbortController) return;
+    this.scriptCancelRequested = true;
+    this.scriptProgressAction = 'Cancel requested. Waiting for current operation to stop...';
+    this.scriptAbortController.abort();
+  }
+
   async runScript() {
+    if (this.scriptRunning) return;
     this.scriptError = null;
     this.scriptOutput = '';
+    this.scriptCancelRequested = false;
+    this.scriptRunning = true;
+    this.scriptProgressPercent = 0;
+    this.scriptProgressAction = 'Preparing script runtime...';
+    this.scriptOperationCount = 0;
+    this.scriptElapsedMs = 0;
+    const startedAtMs = Date.now();
+    const scriptLabel = String(this.scriptName || 'Script').trim() || 'Script';
+    this.pushScriptLog(`Run started: ${scriptLabel}`);
+
+    const abortController = new AbortController();
+    this.scriptAbortController = abortController;
+
     try {
       const result = await this.scriptPlayground.runScript(this.scriptCode, {
         model: this.model,
         runtime: this.runtime,
         shapeImport: this.shapeImport,
         getGeneration: () => this.generation,
-        maxOperations: this.scriptMaxOperations
+        maxOperations: this.scriptMaxOperations,
+        signal: abortController.signal,
+        onProgress: (event: ScriptProgressEvent) => this.applyScriptProgress(event),
+        onLog: (line: string) => this.pushScriptLog(line)
       });
       this.runtime.syncIntoRunLoop();
-      this.scriptOutput = `${result.output}\nGeneration: ${result.generation}\nLive Cells: ${result.liveCellCount}\nOperations: ${result.operationCount}`;
+      this.scriptElapsedMs = result.durationMs;
+      this.scriptProgressPercent = 100;
+      this.scriptProgressAction = 'Script completed.';
+      this.scriptOutput = `${result.output}\nGeneration: ${result.generation}\nLive Cells: ${result.liveCellCount}\nOperations: ${result.operationCount}\nDuration: ${result.durationMs} ms`;
+      this.pushScriptLog(`Run completed in ${result.durationMs} ms.`);
+      this.pushScriptRunHistory({
+        startedAt: new Date(startedAtMs).toISOString(),
+        name: scriptLabel,
+        status: 'ok',
+        operationCount: result.operationCount,
+        durationMs: result.durationMs,
+        summary: `Generation ${result.generation}, ${result.liveCellCount} live cells.`
+      });
     } catch (error: any) {
       console.error('[GameOfLife] Script execution failed.', error);
-      this.scriptError = String(error?.message || 'Script execution failed.');
+      const message = String(error?.message || 'Script execution failed.');
+      const canceled = abortController.signal.aborted || /canceled by user/i.test(message);
+      this.scriptError = canceled ? 'Script canceled by user.' : message;
+      this.scriptProgressAction = canceled ? 'Script canceled.' : 'Script failed.';
+      this.pushScriptLog(canceled ? 'Run canceled by user.' : `Run failed: ${message}`);
+      this.pushScriptRunHistory({
+        startedAt: new Date(startedAtMs).toISOString(),
+        name: scriptLabel,
+        status: canceled ? 'canceled' : 'error',
+        operationCount: this.scriptOperationCount,
+        durationMs: Date.now() - startedAtMs,
+        summary: canceled ? 'Canceled by user.' : message
+      });
+    } finally {
+      this.scriptRunning = false;
+      this.scriptAbortController = null;
     }
+  }
+
+  private applyScriptProgress(event: ScriptProgressEvent) {
+    this.scriptOperationCount = Math.max(0, Math.floor(Number(event?.operationCount) || 0));
+    this.scriptElapsedMs = Math.max(0, Math.floor(Number(event?.elapsedMs) || 0));
+    this.scriptProgressPercent = Math.max(0, Math.min(100, Number(event?.percent) || 0));
+    if (event?.action) {
+      this.scriptProgressAction = String(event.action);
+    }
+    if (event?.phase === 'complete') {
+      this.scriptProgressPercent = 100;
+    }
+  }
+
+  private pushScriptLog(line: string) {
+    const message = String(line || '').trim();
+    if (!message) return;
+    const stamped = `[${new Date().toLocaleTimeString()}] ${message}`;
+    this.scriptDebugLog = [stamped, ...this.scriptDebugLog].slice(0, 160);
+  }
+
+  private pushScriptRunHistory(item: ScriptRunHistoryItem) {
+    this.scriptRunHistory = [item, ...this.scriptRunHistory].slice(0, 8);
   }
 
   openStatisticsDialog() {
