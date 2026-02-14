@@ -2,6 +2,7 @@
   class="gol-root"
   [class.ios-mitigated]="isIphoneMitigation"
   [class.phone-controls]="isPhoneClient"
+  [class.script-locked]="scriptRunning"
   [attr.data-client-platform]="clientPlatform"
 >
   <mat-toolbar class="gol-topbar" color="primary">
@@ -442,6 +443,25 @@
           (panChange)="onPan($event)"
         ></app-game-canvas>
 
+        <div class="gol-script-hud" *ngIf="scriptRunning" role="status" aria-live="polite">
+          <div class="gol-script-hud-head">
+            <span class="gol-script-hud-title">Script Running</span>
+            <span class="gol-script-run-pill" [class.canceled]="scriptCancelRequested">
+              {{ scriptCancelRequested ? 'canceling' : ((scriptProgressPercent | number:'1.0-0') + '%') }}
+            </span>
+          </div>
+          <div class="gol-script-hud-name">{{ scriptName || 'Script' }}</div>
+          <div class="gol-script-hud-action">{{ scriptProgressAction || 'Executing script...' }}</div>
+          <div class="gol-script-hud-metrics">
+            <span>{{ scriptOperationCount | number }} ops</span>
+            <span>{{ scriptElapsedMs | number }} ms</span>
+          </div>
+          <div class="gol-script-hud-actions">
+            <button mat-stroked-button color="primary" type="button" (click)="openScriptPlayground()">Open Panel</button>
+            <button mat-stroked-button color="warn" type="button" (click)="cancelScriptRun()" [disabled]="scriptCancelRequested">Stop</button>
+          </div>
+        </div>
+
         <div class="gol-loading-overlay" *ngIf="shapesLoading">
           <div class="gol-loading-card">
             <div class="gol-loading-title">Loading shapes...</div>
@@ -680,9 +700,9 @@
               <h3>Scripting Quickstart</h3>
               <ul>
                 <li>Open Script Playground (`K`) and load a template.</li>
-                <li>Run scripts with `api` helpers like `fillRect`, `line`, `stamp`, and `loadRle`.</li>
-                <li>Use `api.log(...)` to print progress in the output panel.</li>
-                <li>Scripts have an operation limit to protect UI responsiveness.</li>
+                <li>Use DSL commands like `PENDOWN`, `GOTO`, `RECT`, `STEP`, and `UNTIL_STEADY`.</li>
+                <li>Click Run & Watch to close the panel and follow live progress in the HUD.</li>
+                <li>Use the HUD Stop button any time to cancel a long run.</li>
               </ul>
             </section>
 
@@ -740,144 +760,135 @@
       </div>
 
       <div class="gol-dialog-backdrop" *ngIf="showScriptDialog">
-        <div class="gol-dialog gol-xl-dialog" role="dialog" aria-modal="true" aria-label="Script Playground" tabindex="-1">
-          <h2>Script Playground</h2>
-          <div class="gol-dialog-body">
-            <div class="gol-script-grid">
-              <div class="gol-script-left">
-                <mat-form-field appearance="fill" class="gol-dialog-field">
-                  <mat-label>Script Library</mat-label>
-                  <mat-select [ngModel]="selectedScriptId" (ngModelChange)="loadScriptFromLibrary($event)" [disabled]="scriptRunning">
-                    <mat-option *ngFor="let script of myScripts" [value]="script.id">{{ script.name }}</mat-option>
-                  </mat-select>
-                </mat-form-field>
+  <div class="gol-dialog gol-xl-dialog" role="dialog" aria-modal="true" aria-label="Script Playground" tabindex="-1">
+    <h2>Script Playground</h2>
+    <div class="gol-dialog-body">
+      <div class="gol-script-tabbar" role="tablist" aria-label="Script playground tabs">
+        <button
+          type="button"
+          class="gol-script-tab"
+          [class.active]="scriptActiveTab === 'editor'"
+          (click)="setScriptTab('editor')"
+        >Editor</button>
+        <button
+          type="button"
+          class="gol-script-tab"
+          [class.active]="scriptActiveTab === 'saved'"
+          (click)="setScriptTab('saved')"
+        >Saved Scripts</button>
+        <button
+          type="button"
+          class="gol-script-tab"
+          [class.active]="scriptActiveTab === 'debug'"
+          (click)="setScriptTab('debug')"
+        >Debug Log</button>
+        <button
+          type="button"
+          class="gol-script-tab"
+          [class.active]="scriptActiveTab === 'reference'"
+          (click)="setScriptTab('reference')"
+        >Language Reference</button>
+      </div>
 
-                <button mat-stroked-button class="gol-script-button" (click)="refreshScriptLibrary()" [disabled]="scriptsLoading || scriptRunning">
-                  {{ scriptsLoading ? 'Refreshing...' : 'Refresh Library' }}
-                </button>
-                <button mat-stroked-button class="gol-script-button" (click)="deleteSelectedScript()" [disabled]="!selectedScriptId || scriptRunning">
-                  Delete Selected
-                </button>
-                <mat-checkbox [(ngModel)]="scriptIsPublic" [disabled]="!isLoggedIn || scriptRunning">Save as public</mat-checkbox>
+      <div class="gol-script-runtime" [class.running]="scriptRunning">
+        <div class="gol-script-runtime-head">
+          <span class="gol-script-runtime-title">Runtime</span>
+          <span class="gol-script-run-pill" [class.ok]="!scriptRunning && !scriptError" [class.error]="!!scriptError" [class.canceled]="scriptCancelRequested && scriptRunning">
+            {{ scriptRunning ? (scriptCancelRequested ? 'canceling' : 'running') : (scriptError ? 'error' : 'idle') }}
+          </span>
+        </div>
+        <div class="gol-script-progress-track" role="progressbar" [attr.aria-valuenow]="scriptProgressPercent" aria-valuemin="0" aria-valuemax="100">
+          <div class="gol-script-progress-fill" [style.width.%]="scriptProgressPercent"></div>
+        </div>
+        <div class="gol-script-runtime-stats">
+          <span>{{ scriptProgressPercent | number:'1.0-0' }}%</span>
+          <span>{{ scriptOperationCount | number }} ops</span>
+          <span>{{ scriptElapsedMs | number }} ms</span>
+        </div>
+        <div class="gol-script-runtime-action" *ngIf="scriptProgressAction">{{ scriptProgressAction }}</div>
+      </div>
 
-                <mat-divider></mat-divider>
+      <div class="gol-script-panel" *ngIf="scriptActiveTab === 'editor'">
+        <div class="gol-script-grid">
+          <div class="gol-script-left">
+            <mat-form-field appearance="fill" class="gol-dialog-field">
+              <mat-label>Template Starter</mat-label>
+              <mat-select [(ngModel)]="selectedScriptTemplateId" [disabled]="scriptRunning">
+                <mat-option *ngFor="let template of scriptTemplates" [value]="template.id">
+                  {{ template.name }}
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+            <button mat-stroked-button class="gol-script-button" (click)="applySelectedScriptTemplate()" [disabled]="scriptRunning">Load Template</button>
 
-                <mat-form-field appearance="fill" class="gol-dialog-field">
-                  <mat-label>Template Starter</mat-label>
-                  <mat-select [(ngModel)]="selectedScriptTemplateId" [disabled]="scriptRunning">
-                    <mat-option *ngFor="let template of scriptTemplates" [value]="template.id">
-                      {{ template.name }} ({{ template.difficulty }})
-                    </mat-option>
-                  </mat-select>
-                </mat-form-field>
-                <button mat-stroked-button class="gol-script-button" (click)="applySelectedScriptTemplate()" [disabled]="scriptRunning">
-                  Load Template
-                </button>
-
-                <mat-form-field appearance="fill" class="gol-dialog-field">
-                  <mat-label>Max Script Operations</mat-label>
-                  <input matInput type="number" min="1000" step="1000" [(ngModel)]="scriptMaxOperations" [disabled]="scriptRunning">
-                </mat-form-field>
-
-                <div class="gol-learning-panels">
-                  <div class="gol-learning-title">Learning Paths</div>
-                  <button
-                    mat-stroked-button
-                    class="gol-learning-card"
-                    type="button"
-                    *ngFor="let panel of scriptLearningPanels"
-                    (click)="applyLearningTemplate(panel.id)"
-                    [disabled]="scriptRunning"
-                  >
-                    <span class="gol-learning-card-title">{{ panel.title }} · {{ panel.audience }}</span>
-                    <span class="gol-learning-card-focus">{{ panel.focus }}</span>
-                    <span class="gol-learning-card-try">Try: {{ panel.tryThis }}</span>
-                  </button>
-                </div>
-
-                <div class="gol-script-api">
-                  <div class="gol-learning-title">API Quick Reference</div>
-                  <code *ngFor="let line of scriptApiReference">{{ line }}</code>
-                </div>
-
-                <div class="gol-script-history">
-                  <div class="gol-learning-title">Recent Runs</div>
-                  <div class="gol-script-history-empty" *ngIf="scriptRunHistory.length === 0">No runs yet.</div>
-                  <div class="gol-script-history-item" *ngFor="let run of scriptRunHistory">
-                    <div class="gol-script-history-head">
-                      <span class="gol-script-run-pill" [class.ok]="run.status === 'ok'" [class.error]="run.status === 'error'" [class.canceled]="run.status === 'canceled'">
-                        {{ run.status }}
-                      </span>
-                      <span class="gol-script-run-name">{{ run.name }}</span>
-                    </div>
-                    <div class="gol-script-history-meta">{{ run.operationCount | number }} ops · {{ run.durationMs | number }} ms</div>
-                    <div class="gol-script-history-summary">{{ run.summary }}</div>
-                  </div>
-                </div>
-
-                <div class="gol-dialog-error" *ngIf="scriptsError">{{ scriptsError }}</div>
-              </div>
-
-              <div class="gol-script-right">
-                <mat-form-field appearance="fill" class="gol-dialog-field">
-                  <mat-label>Script Name</mat-label>
-                  <input matInput [(ngModel)]="scriptName" maxlength="140" [disabled]="scriptRunning">
-                </mat-form-field>
-
-                <div class="gol-script-runtime" [class.running]="scriptRunning">
-                  <div class="gol-script-runtime-head">
-                    <span class="gol-script-runtime-title">Runtime</span>
-                    <span class="gol-script-run-pill" [class.ok]="!scriptRunning && !scriptError" [class.error]="!!scriptError" [class.canceled]="scriptCancelRequested && scriptRunning">
-                      {{ scriptRunning ? (scriptCancelRequested ? 'canceling' : 'running') : (scriptError ? 'error' : 'idle') }}
-                    </span>
-                  </div>
-                  <div class="gol-script-progress-track" role="progressbar" [attr.aria-valuenow]="scriptProgressPercent" aria-valuemin="0" aria-valuemax="100">
-                    <div class="gol-script-progress-fill" [style.width.%]="scriptProgressPercent"></div>
-                  </div>
-                  <div class="gol-script-runtime-stats">
-                    <span>{{ scriptProgressPercent | number:'1.0-0' }}%</span>
-                    <span>{{ scriptOperationCount | number }} ops</span>
-                    <span>{{ scriptElapsedMs | number }} ms</span>
-                  </div>
-                  <div class="gol-script-runtime-action" *ngIf="scriptProgressAction">{{ scriptProgressAction }}</div>
-                </div>
-
-                <div class="gol-script-snippet-row">
-                  <button mat-stroked-button type="button" (click)="appendScriptSnippet('api.stamp(\'glider\', 0, 0);')" [disabled]="scriptRunning">+ Glider</button>
-                  <button mat-stroked-button type="button" (click)="appendScriptSnippet('api.randomRect(-20, -12, 40, 24, 0.33);')" [disabled]="scriptRunning">+ Random Lab</button>
-                  <button mat-stroked-button type="button" (click)="appendScriptSnippet('for (let i = 0; i < 4; i += 1) { api.stamp(\'lwss\', -24 + i * 12, -4 + i); }')" [disabled]="scriptRunning">+ Fleet Loop</button>
-                </div>
-
-                <mat-form-field appearance="fill" class="gol-dialog-field">
-                  <mat-label>Script Code</mat-label>
-                  <textarea matInput rows="14" [(ngModel)]="scriptCode" [disabled]="scriptRunning"></textarea>
-                </mat-form-field>
-                <div class="gol-dialog-error" *ngIf="scriptError">{{ scriptError }}</div>
-                <div class="gol-script-output" *ngIf="scriptOutput">{{ scriptOutput }}</div>
-
-                <div class="gol-script-console">
-                  <div class="gol-script-console-head">
-                    <span>Execution Console</span>
-                    <button mat-button type="button" (click)="clearScriptConsole()" [disabled]="scriptRunning || scriptDebugLog.length === 0">Clear</button>
-                  </div>
-                  <div class="gol-script-console-empty" *ngIf="scriptDebugLog.length === 0">Run a script to see logs.</div>
-                  <code *ngFor="let line of scriptDebugLog">{{ line }}</code>
-                </div>
-              </div>
-            </div>
+            <mat-form-field appearance="fill" class="gol-dialog-field">
+              <mat-label>Script Name</mat-label>
+              <input matInput [(ngModel)]="scriptName" maxlength="140" [disabled]="scriptRunning">
+            </mat-form-field>
+            <mat-checkbox [(ngModel)]="scriptIsPublic" [disabled]="!isLoggedIn || scriptRunning">Save as public</mat-checkbox>
           </div>
-          <div class="gol-dialog-actions">
-            <button mat-button (click)="closeScriptPlayground()">Close</button>
-            <button mat-stroked-button color="primary" (click)="saveCurrentScript()" [disabled]="scriptRunning">Save Script</button>
-            <button mat-stroked-button color="warn" (click)="cancelScriptRun()" [disabled]="!scriptRunning">Cancel Run</button>
-            <button mat-raised-button color="primary" (click)="runScript()" [disabled]="scriptRunning">
-              {{ scriptRunning ? (scriptCancelRequested ? 'Canceling...' : 'Running...') : 'Run Script' }}
-            </button>
+
+          <div class="gol-script-right">
+            <mat-form-field appearance="fill" class="gol-dialog-field">
+              <mat-label>Script Code</mat-label>
+              <textarea matInput rows="17" [(ngModel)]="scriptCode" [disabled]="scriptRunning"></textarea>
+            </mat-form-field>
+            <div class="gol-dialog-error" *ngIf="scriptError">{{ scriptError }}</div>
+            <div class="gol-script-output" *ngIf="scriptOutput">{{ scriptOutput }}</div>
           </div>
         </div>
       </div>
 
-      <div class="gol-dialog-backdrop" *ngIf="showStatisticsDialog">
+      <div class="gol-script-panel" *ngIf="scriptActiveTab === 'saved'">
+        <div class="gol-script-grid">
+          <div class="gol-script-left">
+            <button mat-stroked-button class="gol-script-button" (click)="refreshScriptLibrary()" [disabled]="scriptsLoading || scriptRunning">
+              {{ scriptsLoading ? 'Refreshing...' : 'Refresh Library' }}
+            </button>
+            <button mat-stroked-button class="gol-script-button" (click)="deleteSelectedScript()" [disabled]="!selectedScriptId || scriptRunning">
+              Delete Selected
+            </button>
+          </div>
+          <div class="gol-script-right">
+            <mat-form-field appearance="fill" class="gol-dialog-field">
+              <mat-label>Script Library</mat-label>
+              <mat-select [ngModel]="selectedScriptId" (ngModelChange)="loadScriptFromLibrary($event)" [disabled]="scriptRunning">
+                <mat-option *ngFor="let script of myScripts" [value]="script.id">{{ script.name }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <div class="gol-dialog-error" *ngIf="scriptsError">{{ scriptsError }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="gol-script-panel" *ngIf="scriptActiveTab === 'debug'">
+        <div class="gol-script-console">
+          <div class="gol-script-console-head">
+            <span>Debug Log</span>
+            <button mat-button type="button" (click)="clearScriptConsole()" [disabled]="scriptRunning || scriptDebugLog.length === 0">Clear</button>
+          </div>
+          <div class="gol-script-console-empty" *ngIf="scriptDebugLog.length === 0">No debug messages yet.</div>
+          <code *ngFor="let line of scriptDebugLog">{{ line }}</code>
+        </div>
+      </div>
+
+      <div class="gol-script-panel" *ngIf="scriptActiveTab === 'reference'">
+        <div class="gol-script-reference">
+          <code *ngFor="let line of scriptApiReference">{{ line }}</code>
+        </div>
+      </div>
+    </div>
+    <div class="gol-dialog-actions">
+      <button mat-button (click)="closeScriptPlayground()">Close</button>
+      <button mat-stroked-button color="primary" (click)="saveCurrentScript()" [disabled]="scriptRunning">Save Script</button>
+      <button mat-stroked-button color="warn" (click)="cancelScriptRun()" [disabled]="!scriptRunning">Cancel Run</button>
+      <button mat-raised-button color="primary" (click)="runScript()" [disabled]="scriptRunning">
+        {{ scriptRunning ? (scriptCancelRequested ? 'Canceling...' : 'Running...') : 'Run & Watch' }}
+      </button>
+    </div>
+  </div>
+</div>
+<div class="gol-dialog-backdrop" *ngIf="showStatisticsDialog">
         <div class="gol-dialog" role="dialog" aria-modal="true" aria-label="Simulation Statistics" tabindex="-1">
           <h2>Simulation Statistics</h2>
           <div class="gol-dialog-body gol-stats-grid">
@@ -1039,3 +1050,4 @@
     </mat-sidenav-content>
   </mat-sidenav-container>
 </div>
+

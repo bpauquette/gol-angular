@@ -22,115 +22,132 @@ describe('ScriptPlaygroundService', () => {
     runtime.start.calls.reset();
   });
 
-  function createContext(maxOperations?: number, extras: Record<string, unknown> = {}) {
+  function createContext(extras: Record<string, unknown> = {}) {
     return {
       model,
       runtime,
       shapeImport,
       getGeneration: () => generation,
-      maxOperations,
       ...extras
     };
   }
 
-  it('exposes templates, learning panels, and api reference', () => {
-    expect(service.getTemplates().length).toBeGreaterThan(3);
-    expect(service.getLearningPanels().length).toBeGreaterThan(1);
-    expect(service.getApiReference()).toContain('api.fillRect(x, y, width, height, alive?)');
-    expect(service.getTemplates().map((template) => template.name)).toContain('Steady Squares');
-    expect(service.getTemplates().some((template) => /pulsar/i.test(template.name))).toBeTrue();
+  it('exposes original templates and language reference', () => {
+    const templates = service.getTemplates();
+    const names = templates.map((template) => template.name);
+
+    expect(names).toContain('Basic Drawing');
+    expect(names).toContain('Conway Glider');
+    expect(names).toContain('Geometric Shapes');
+    expect(names).toContain('Random Garden');
+    expect(names).toContain('Steady Squares');
+    expect(names).toContain('Empty Script');
+    expect(service.getApiReference().join('\n')).toContain('PENDOWN');
   });
 
-  it('runs geometry scripts and reports output', async () => {
+  it('runs drawing commands', async () => {
     const result = await service.runScript([
-      'api.clear();',
-      'api.fillRect(0, 0, 2, 2, true);',
-      'api.setCell(3, 0, true);',
-      'api.log("geometry done");'
+      'CLEAR',
+      'PENDOWN',
+      'GOTO 0 0',
+      'RECT 2 2',
+      'PRINT "done"'
     ].join('\n'), createContext());
 
-    expect(model.getLiveCells().length).toBe(5);
-    expect(result.output).toContain('geometry done');
+    expect(model.getLiveCells().length).toBe(4);
+    expect(result.output).toContain('done');
     expect(result.operationCount).toBeGreaterThan(0);
-    expect(result.durationMs).toBeGreaterThanOrEqual(0);
-    expect(result.logs).toContain('geometry done');
   });
 
-  it('supports await in script and built-in stamps', async () => {
-    const result = await service.runScript([
-      'api.clear();',
-      'api.stamp("glider", 5, 5);',
-      'await api.wait(1);',
-      'api.pause();',
-      'api.start();',
-      'api.log(`cells=${api.getLiveCells().length}`);'
-    ].join('\n'), createContext());
-
-    expect(model.getLiveCells().length).toBe(5);
-    expect(runtime.pause).toHaveBeenCalled();
-    expect(runtime.start).toHaveBeenCalled();
-    expect(result.output).toContain('cells=5');
-  });
-
-  it('loads RLE patterns from script', async () => {
-    generation = 42;
+  it('supports FOR loops and assignment expressions', async () => {
     await service.runScript([
-      'const rle = "x = 3, y = 3, rule = B3/S23\\nbob$2bo$3o!";',
-      'api.loadRle(rle, "glider");'
+      'CLEAR',
+      'PENDOWN',
+      'FOR i FROM 0 TO 2',
+      '  GOTO i 0',
+      '  RECT 1 1',
+      'END'
     ].join('\n'), createContext());
 
-    expect(model.getLiveCells().length).toBe(5);
+    expect(model.getLiveCells().length).toBe(3);
   });
 
-  it('supports stability checks and pulsar text stamping', async () => {
+  it('supports WHILE loops and comparisons', async () => {
     const result = await service.runScript([
-      'api.clear();',
-      'api.fillRect(0, 0, 6, 6, true);',
-      'const settled = await api.untilSteady(32, 12);',
-      'api.drawStampText("GO", -40, -24, "pulsar", 12, 2);',
-      'api.log("stable=" + settled.stable + " steps=" + settled.steps + " period=" + settled.period);'
-    ].join('\n'), createContext(500000));
+      'CLEAR',
+      'x = 0',
+      'WHILE x < 3',
+      '  x = x + 1',
+      'END',
+      'PRINT x'
+    ].join('\n'), createContext());
 
-    expect(model.getLiveCells().length).toBeGreaterThan(40);
-    expect(result.output).toContain('stable=');
+    expect(result.output).toContain('3');
   });
 
-  it('fails when script exceeds operation limit', async () => {
-    await expectAsync(service.runScript([
-      'api.clear();',
-      'for (let i = 0; i < 5000; i += 1) {',
-      '  api.setCell(i, 0, true);',
-      '}'
-    ].join('\n'), createContext(1000))).toBeRejectedWithError(/operation limit/i);
+  it('runs START/STOP and UNTIL_STEADY', async () => {
+    const result = await service.runScript([
+      'CLEAR',
+      'PENDOWN',
+      'GOTO 0 0',
+      'RECT 2 2',
+      'START',
+      'UNTIL_STEADY steps 20',
+      'STOP',
+      'PRINT steps'
+    ].join('\n'), createContext());
+
+    expect(result.runStateIntent).toBe('paused');
+    expect(result.output).toMatch(/\d+|-1/);
   });
 
-  it('emits progress and log callbacks during execution', async () => {
+  it('tracks deferred runtime intent from START/STOP', async () => {
+    const running = await service.runScript([
+      'CLEAR',
+      'START'
+    ].join('\n'), createContext());
+    expect(running.runStateIntent).toBe('running');
+
+    const paused = await service.runScript([
+      'CLEAR',
+      'START',
+      'STOP'
+    ].join('\n'), createContext());
+    expect(paused.runStateIntent).toBe('paused');
+  });
+
+  it('emits progress and logs', async () => {
     const progressEvents: Array<{ phase: string; action: string }> = [];
     const logLines: string[] = [];
-    const result = await service.runScript([
-      'api.clear();',
-      'api.setCell(1, 1, true);',
-      'api.log("telemetry ok");'
-    ].join('\n'), createContext(undefined, {
+    const worldEvents: Array<{ reason: string; command: string }> = [];
+
+    await service.runScript([
+      'CLEAR',
+      'PENDOWN',
+      'RECT 1 1',
+      'STEP 1',
+      'PRINT "telemetry"'
+    ].join('\n'), createContext({
       onProgress: (event: { phase: string; action: string }) => progressEvents.push(event),
-      onLog: (line: string) => logLines.push(line)
+      onLog: (line: string) => logLines.push(line),
+      onWorldChange: (event: { reason: string; command: string }) => worldEvents.push(event)
     }));
 
     expect(progressEvents.length).toBeGreaterThan(1);
     expect(progressEvents[0].phase).toBe('start');
     expect(progressEvents[progressEvents.length - 1].phase).toBe('complete');
-    expect(progressEvents.some((event) => /api\.setCell/i.test(event.action))).toBeTrue();
-    expect(logLines).toContain('telemetry ok');
-    expect(result.logs).toContain('telemetry ok');
+    expect(logLines).toContain('telemetry');
+    expect(worldEvents.some((event) => event.command === 'RECT')).toBeTrue();
+    expect(worldEvents.some((event) => event.command === 'STEP')).toBeTrue();
   });
 
   it('cancels script execution via AbortSignal', async () => {
     const abortController = new AbortController();
     abortController.abort();
+
     await expectAsync(service.runScript([
-      'api.clear();',
-      'await api.wait(250);',
-      'api.log("should not run");'
-    ].join('\n'), createContext(undefined, { signal: abortController.signal }))).toBeRejectedWithError(/canceled/i);
+      'CLEAR',
+      'STEP 10'
+    ].join('\n'), createContext({ signal: abortController.signal }))).toBeRejectedWithError(/canceled/i);
   });
 });

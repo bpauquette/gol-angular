@@ -12,6 +12,15 @@
   color: var(--gol-text-primary);
 }
 
+.gol-root.script-locked .gol-topbar,
+.gol-root.script-locked .gol-toolstrip,
+.gol-root.script-locked .gol-hashlife-mobile-toggle,
+.gol-root.script-locked .gol-hashlife-observatory,
+.gol-root.script-locked .gol-statusbar {
+  pointer-events: none;
+  opacity: 0.62;
+}
+
 .gol-topbar {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -352,6 +361,72 @@
   align-items: center;
   justify-content: center;
   background: rgba(3, 10, 22, 0.75);
+}
+
+.gol-script-hud {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 26;
+  width: min(430px, calc(100% - 24px));
+  border: 1px solid rgba(132, 244, 183, 0.5);
+  border-radius: 10px;
+  background: rgba(6, 20, 36, 0.88);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+  padding: 10px 12px;
+  backdrop-filter: blur(6px);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gol-script-hud-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.gol-script-hud-title {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #b7ffd4;
+  font-weight: 700;
+}
+
+.gol-script-hud-name {
+  color: #e6f2ff;
+  font-size: 0.84rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.gol-script-hud-action {
+  color: #c8defa;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  max-height: 2.8em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gol-script-hud-metrics {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #9fc3ea;
+  font-size: 0.74rem;
+}
+
+.gol-script-hud-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.gol-script-hud-actions button {
+  min-height: 30px;
 }
 
 .gol-loading-card {
@@ -940,6 +1015,33 @@
   gap: 14px;
 }
 
+.gol-script-tabbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.gol-script-tab {
+  border: 1px solid rgba(120, 190, 255, 0.35);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.78rem;
+  color: #d7e7ff;
+  background: rgba(16, 35, 61, 0.64);
+  cursor: pointer;
+}
+
+.gol-script-tab.active {
+  border-color: rgba(132, 244, 183, 0.6);
+  background: rgba(20, 71, 48, 0.72);
+  color: #e4ffef;
+}
+
+.gol-script-panel {
+  margin-top: 8px;
+}
+
 .gol-script-left,
 .gol-script-right {
   min-width: 0;
@@ -1102,6 +1204,26 @@
   color: #b8dcff;
   font-size: 0.72rem;
   line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.gol-script-reference {
+  border: 1px solid rgba(120, 190, 255, 0.25);
+  border-radius: 8px;
+  background: rgba(5, 14, 25, 0.72);
+  padding: 10px;
+  max-height: 340px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gol-script-reference code {
+  display: block;
+  color: #b8dcff;
+  font-size: 0.75rem;
+  line-height: 1.4;
   white-space: pre-wrap;
 }
 
@@ -1433,6 +1555,18 @@
     gap: 8px;
   }
 
+  .gol-script-hud {
+    top: 8px;
+    left: 8px;
+    width: min(460px, calc(100% - 16px));
+    padding: 8px 10px;
+    gap: 5px;
+  }
+
+  .gol-script-hud-action {
+    font-size: 0.74rem;
+  }
+
   .gol-root.phone-controls .gol-statusbar {
     flex-wrap: nowrap;
     justify-content: space-between;
@@ -1529,6 +1663,24 @@
   .gol-root.phone-controls .gol-status-mobile-chip {
     font-size: 0.68rem;
     padding: 2px 6px;
+  }
+
+  .gol-root.phone-controls .gol-script-hud {
+    top: 6px;
+    left: 6px;
+    width: calc(100% - 12px);
+    padding: 8px 8px;
+    border-radius: 8px;
+  }
+
+  .gol-root.phone-controls .gol-script-hud-actions {
+    gap: 6px;
+  }
+
+  .gol-root.phone-controls .gol-script-hud-actions button {
+    flex: 1 1 110px;
+    min-height: 34px;
+    padding: 0 10px;
   }
 
   .gol-toolbar-btn {

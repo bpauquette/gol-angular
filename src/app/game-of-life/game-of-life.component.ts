@@ -15,7 +15,6 @@ import { AdaComplianceService } from '../services/ada-compliance.service';
 import { ShapeImportService } from '../services/shape-import.service';
 import { ScriptCatalogService, ScriptItem } from '../services/script-catalog.service';
 import {
-  ScriptLearningPanel,
   ScriptProgressEvent,
   ScriptPlaygroundService,
   ScriptTemplate
@@ -51,15 +50,6 @@ interface PhotosensitivityProbeMetrics {
   flashRateHz: number;
   peakChangedAreaRatio: number;
   peakGlobalLumaDelta: number;
-}
-
-interface ScriptRunHistoryItem {
-  startedAt: string;
-  name: string;
-  status: 'ok' | 'error' | 'canceled';
-  operationCount: number;
-  durationMs: number;
-  summary: string;
 }
 
 @Component({
@@ -197,12 +187,14 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
   private reopenPhotosensitivityDialogAfterProbe = false;
 
   showScriptDialog = false;
-  scriptName = 'Quick Script';
+  scriptName = 'Basic Drawing';
   scriptCode = [
-    '// Script API: api.clear(), api.setCell(x,y), api.addCells([{x,y}]), api.loadRle(text)',
-    'api.clear();',
-    'api.addCells([{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 2, y: 0 }]);'
+    'PENDOWN',
+    'RECT 4 3',
+    'GOTO 10 5',
+    'RECT 2 2'
   ].join('\n');
+  scriptActiveTab: 'editor' | 'saved' | 'debug' | 'reference' = 'editor';
   scriptOutput = '';
   scriptError: string | null = null;
   scriptIsPublic = false;
@@ -212,9 +204,7 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
   selectedScriptId: string | null = null;
   selectedScriptTemplateId: string | null = null;
   scriptTemplates: ScriptTemplate[] = [];
-  scriptLearningPanels: ScriptLearningPanel[] = [];
   scriptApiReference: string[] = [];
-  scriptMaxOperations = 250000;
   scriptRunning = false;
   scriptCancelRequested = false;
   scriptProgressPercent = 0;
@@ -222,7 +212,7 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
   scriptOperationCount = 0;
   scriptElapsedMs = 0;
   scriptDebugLog: string[] = [];
-  scriptRunHistory: ScriptRunHistoryItem[] = [];
+  scriptLastRunId: string | null = null;
 
   showStatisticsDialog = false;
   showAccountDialog = false;
@@ -355,7 +345,6 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     }
 
     this.scriptTemplates = this.scriptPlayground.getTemplates();
-    this.scriptLearningPanels = this.scriptPlayground.getLearningPanels();
     this.scriptApiReference = this.scriptPlayground.getApiReference();
     if (!this.selectedScriptTemplateId && this.scriptTemplates.length > 0) {
       this.selectedScriptTemplateId = this.scriptTemplates[0].id;
@@ -475,10 +464,12 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
   }
 
   toggleRun() {
+    if (this.scriptRunning) return;
     this.runtime.toggleRun();
   }
 
   step() {
+    if (this.scriptRunning) return;
     this.runtime.step();
   }
 
@@ -700,6 +691,7 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
   }
 
   clear() {
+    if (this.scriptRunning) return;
     this.cancelHashlifeLeap(false);
     this.runtime.clear();
   }
@@ -990,6 +982,7 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
   }
 
   setTool(tool: ToolName) {
+    if (this.scriptRunning) return;
     this.selectedTool = tool;
     this.toolState = {};
     this.toolPreview = null;
@@ -1295,6 +1288,7 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
 
   openScriptPlayground() {
     this.showScriptDialog = true;
+    this.scriptActiveTab = 'editor';
     if (!this.selectedScriptTemplateId && this.scriptTemplates.length > 0) {
       this.selectedScriptTemplateId = this.scriptTemplates[0].id;
     }
@@ -1309,21 +1303,12 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     this.scriptError = null;
   }
 
+  setScriptTab(tab: 'editor' | 'saved' | 'debug' | 'reference') {
+    this.scriptActiveTab = tab;
+  }
+
   applySelectedScriptTemplate() {
     this.applyScriptTemplate(this.selectedScriptTemplateId);
-  }
-
-  appendScriptSnippet(snippet: string) {
-    const next = String(snippet || '').trim();
-    if (!next) return;
-    const current = String(this.scriptCode || '').replace(/\s+$/, '');
-    this.scriptCode = current ? `${current}\n${next}\n` : `${next}\n`;
-  }
-
-  applyLearningTemplate(panelId: string) {
-    const panel = this.scriptLearningPanels.find((item) => item.id === panelId);
-    if (!panel) return;
-    this.applyScriptTemplate(panel.templateId);
   }
 
   applyScriptTemplate(templateId: string | null | undefined) {
@@ -1424,10 +1409,13 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
 
   async runScript() {
     if (this.scriptRunning) return;
+    const wasRunningBeforeScript = this.isRunning;
+    this.runtime.pause();
     this.scriptError = null;
     this.scriptOutput = '';
     this.scriptCancelRequested = false;
     this.scriptRunning = true;
+    this.showScriptDialog = false;
     this.scriptProgressPercent = 0;
     this.scriptProgressAction = 'Preparing script runtime...';
     this.scriptOperationCount = 0;
@@ -1445,25 +1433,27 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
         runtime: this.runtime,
         shapeImport: this.shapeImport,
         getGeneration: () => this.generation,
-        maxOperations: this.scriptMaxOperations,
         signal: abortController.signal,
         onProgress: (event: ScriptProgressEvent) => this.applyScriptProgress(event),
-        onLog: (line: string) => this.pushScriptLog(line)
+        onLog: (line: string) => this.pushScriptLog(line),
+        onWorldChange: () => this.runtime.syncNow()
       });
-      this.runtime.syncIntoRunLoop();
+      this.runtime.syncNow();
+      this.scriptLastRunId = result.runId;
       this.scriptElapsedMs = result.durationMs;
       this.scriptProgressPercent = 100;
       this.scriptProgressAction = 'Script completed.';
       this.scriptOutput = `${result.output}\nGeneration: ${result.generation}\nLive Cells: ${result.liveCellCount}\nOperations: ${result.operationCount}\nDuration: ${result.durationMs} ms`;
-      this.pushScriptLog(`Run completed in ${result.durationMs} ms.`);
-      this.pushScriptRunHistory({
-        startedAt: new Date(startedAtMs).toISOString(),
-        name: scriptLabel,
-        status: 'ok',
-        operationCount: result.operationCount,
-        durationMs: result.durationMs,
-        summary: `Generation ${result.generation}, ${result.liveCellCount} live cells.`
-      });
+      this.pushScriptLog(`Run completed in ${result.durationMs} ms. (Run ID: ${result.runId})`);
+      if (result.runStateIntent === 'running') {
+        this.runtime.start();
+      } else if (result.runStateIntent === 'paused') {
+        this.runtime.pause();
+      } else if (wasRunningBeforeScript) {
+        this.runtime.start();
+      } else {
+        this.runtime.pause();
+      }
     } catch (error: any) {
       console.error('[GameOfLife] Script execution failed.', error);
       const message = String(error?.message || 'Script execution failed.');
@@ -1471,14 +1461,13 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
       this.scriptError = canceled ? 'Script canceled by user.' : message;
       this.scriptProgressAction = canceled ? 'Script canceled.' : 'Script failed.';
       this.pushScriptLog(canceled ? 'Run canceled by user.' : `Run failed: ${message}`);
-      this.pushScriptRunHistory({
-        startedAt: new Date(startedAtMs).toISOString(),
-        name: scriptLabel,
-        status: canceled ? 'canceled' : 'error',
-        operationCount: this.scriptOperationCount,
-        durationMs: Date.now() - startedAtMs,
-        summary: canceled ? 'Canceled by user.' : message
-      });
+      this.scriptElapsedMs = Math.max(0, Date.now() - startedAtMs);
+      this.runtime.syncNow();
+      if (wasRunningBeforeScript && !canceled) {
+        this.runtime.start();
+      } else {
+        this.runtime.pause();
+      }
     } finally {
       this.scriptRunning = false;
       this.scriptAbortController = null;
@@ -1502,10 +1491,6 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     if (!message) return;
     const stamped = `[${new Date().toLocaleTimeString()}] ${message}`;
     this.scriptDebugLog = [stamped, ...this.scriptDebugLog].slice(0, 160);
-  }
-
-  private pushScriptRunHistory(item: ScriptRunHistoryItem) {
-    this.scriptRunHistory = [item, ...this.scriptRunHistory].slice(0, 8);
   }
 
   openStatisticsDialog() {
@@ -1680,6 +1665,7 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
 
   onCanvasEvent(evt: { type: 'down' | 'move' | 'up'; x: number; y: number }) {
     if (!evt) return;
+    if (this.scriptRunning) return;
     if (this.isIphoneMitigation) this.markInteraction();
     if (evt.type === 'down') {
       this.isPointerDown = true;
@@ -1817,7 +1803,7 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
   }
 
   private canHandleGlobalShortcuts() {
-    return !this.isModalDialogOpen();
+    return !this.isModalDialogOpen() && !this.scriptRunning;
   }
 
   private getPrimaryCanvasElement() {

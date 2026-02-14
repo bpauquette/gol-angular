@@ -100,3 +100,28 @@ Before merging architecture-impacting work, verify:
 - Are observables exposed readonly to UI?
 - Does this increase or reduce coupling?
 - Are tests added at the correct layer?
+
+## Script Runtime Contract (2026-02-14)
+
+These rules define how script execution interacts with the simulation engine.
+
+- Single writer rule: when a script is running, the script interpreter exclusively owns world mutation.
+- Runtime preemption: runtime loop is paused before script start.
+- Deferred run intent: `START` and `STOP` inside scripts record post-run intent and do not switch runtime immediately mid-script.
+- UI lock while running: canvas/tool edits and global simulation shortcuts are ignored while script execution is active.
+- Deterministic command order: commands execute in source order with structured control flow (`IF`/`WHILE`/`FOR`) from parsed blocks.
+- Rendering granularity: world mutations are pushed to runtime sync at command boundaries for draw commands and per-step for simulation commands (`STEP`, `UNTIL_STEADY`).
+- Stability semantics: `UNTIL_STEADY` uses exact-state cycle detection within the requested step window and records period metadata.
+- Cancel/error guarantees: cancellation is cooperative at command/step boundaries and preserves last valid world state.
+
+Rationale from language/compiler practice:
+
+- Phase separation: parse first, execute second, instead of interleaving parse+execution.
+- Small-step operational model: explicit step boundaries for simulation advancement.
+- Explicit machine state transitions: interpreter computes intent, runtime applies final machine state.
+
+References used for this contract:
+
+- SICP JavaScript adaptation, metacircular evaluator structure: https://sicp.sourceacademy.org/chapters/4.1.html
+- Stanford CS242 operational semantics notes: https://stanford-cs242.github.io/f19/lectures/01-1-operational-semantics.html
+- Crafting Interpreters (tree-walk execution model): https://craftinginterpreters.com/a-tree-walk-interpreter.html

@@ -27,11 +27,13 @@ export interface ScriptExecutionContext {
   runtime: Pick<GameRuntimeService, 'pause' | 'start'>;
   shapeImport: ShapeImportService;
   getGeneration: () => number;
-  maxOperations?: number;
   signal?: AbortSignal;
   onProgress?: (event: ScriptProgressEvent) => void;
   onLog?: (line: string) => void;
+  onWorldChange?: (event: ScriptWorldChangeEvent) => void;
 }
+
+export type ScriptRunStateIntent = 'unchanged' | 'running' | 'paused';
 
 export interface ScriptRunResult {
   generation: number;
@@ -40,153 +42,121 @@ export interface ScriptRunResult {
   durationMs: number;
   logs: string[];
   output: string;
+  runStateIntent: ScriptRunStateIntent;
+  runId: string;
 }
 
 export interface ScriptProgressEvent {
   phase: 'start' | 'running' | 'complete';
   operationCount: number;
-  maxOperations: number;
   action: string;
   percent: number;
   elapsedMs: number;
 }
 
-type ScriptCell = { x: number; y: number };
-type ScriptPoint = [number, number];
+export interface ScriptWorldChangeEvent {
+  reason: 'command' | 'step' | 'until-steady';
+  line: number;
+  command: string;
+  generation: number;
+  liveCellCount: number;
+}
 
-const STAMP_TEXT_GLYPHS: Record<string, string[]> = {
-  A: ['01110', '10001', '10001', '11111', '10001', '10001', '10001'],
-  B: ['11110', '10001', '10001', '11110', '10001', '10001', '11110'],
-  G: ['01111', '10000', '10000', '10011', '10001', '10001', '01110'],
-  I: ['11111', '00100', '00100', '00100', '00100', '00100', '11111'],
-  L: ['10000', '10000', '10000', '10000', '10000', '10000', '11111'],
-  N: ['10001', '11001', '10101', '10011', '10001', '10001', '10001'],
-  O: ['01110', '10001', '10001', '10001', '10001', '10001', '01110'],
-  R: ['11110', '10001', '10001', '11110', '10100', '10010', '10001'],
-  Y: ['10001', '10001', '01010', '00100', '00100', '00100', '00100'],
-  '?': ['01110', '10001', '00001', '00010', '00100', '00000', '00100']
-};
+interface ScriptState {
+  cells: Set<string>;
+  vars: Record<string, number | string | boolean>;
+  output: string[];
+  x: number;
+  y: number;
+  penDown: boolean;
+}
+
+interface Block {
+  line: string;
+  indent: number;
+  idx: number;
+}
 
 @Injectable({ providedIn: 'root' })
 export class ScriptPlaygroundService {
-  private readonly defaultMaxOperations = 250_000;
-
   private readonly templates: ScriptTemplate[] = [
     {
-      id: 'explorer-steady-squares',
+      id: 'basic-drawing',
+      name: 'Basic Drawing',
+      audience: 'All',
+      difficulty: 'Starter',
+      description: 'Simple pen, goto, and rectangle drawing commands.',
+      challenge: 'Move the shapes and change rectangle sizes.',
+      code: 'PENDOWN\nRECT 4 3\nGOTO 10 5\nRECT 2 2\n'
+    },
+    {
+      id: 'conway-glider',
+      name: 'Conway Glider',
+      audience: 'All',
+      difficulty: 'Starter',
+      description: 'Build a glider and step it forward.',
+      challenge: 'Change the start position and step count.',
+      code: '# Conway\'s Glider Pattern\nCLEAR\nPENDOWN\nGOTO 1 0\nRECT 1 1\nGOTO 2 1\nRECT 1 1\nGOTO 0 2\nRECT 1 1\nGOTO 1 2\nRECT 1 1\nGOTO 2 2\nRECT 1 1\nSTEP 10\n'
+    },
+    {
+      id: 'geometric-shapes',
+      name: 'Geometric Shapes',
+      audience: 'All',
+      difficulty: 'Builder',
+      description: 'Quick pattern sketching with rectangles.',
+      challenge: 'Add loops to automate repeated structures.',
+      code: '# Showcase drawing tools\nCLEAR\nPENDOWN\nGOTO 5 5\nRECT 3 3\nGOTO 15 5\nRECT 2 4\nGOTO 25 5\nRECT 1 8\n'
+    },
+    {
+      id: 'random-garden',
+      name: 'Random Garden',
+      audience: 'All',
+      difficulty: 'Builder',
+      description: 'Create a small structured garden-like pattern.',
+      challenge: 'Use FOR loops to add repeated decorations.',
+      code: '# Create scattered patterns\nCLEAR\nPENDOWN\nGOTO 5 5\nRECT 5 1\nGOTO 5 10\nRECT 5 1\nGOTO 8 7\nRECT 2 2\n'
+    },
+    {
+      id: 'steady-squares',
       name: 'Steady Squares',
       audience: 'All',
       difficulty: 'Explorer',
-      description: 'Grow centered squares and measure how quickly each square settles.',
-      challenge: 'Increase the max size or lower max steps to compare transient behavior.',
-      code: [
-        'api.clear();',
-        'for (let size = 6; size <= 54; size += 4) {',
-        '  api.clear();',
-        '  const offset = -Math.floor(size / 2);',
-        '  api.fillRect(offset, offset, size, size, true);',
-        '  const settled = await api.untilSteady(260, 18);',
-        '  const detail = settled.stable',
-        '    ? ("steady in " + settled.steps + " steps (period " + settled.period + ")")',
-        '    : "not steady within cap";',
-        '  api.log("Square " + size + "x" + size + ": " + detail);',
-        '}'
-      ].join('\n')
+      description: 'Grow centered squares and measure stabilization.',
+      challenge: 'Increase max size or reduce max steps.',
+      code: '# Growing squares with UNTIL_STEADY\nCLEAR\nPENDOWN\nsize = 2\nWHILE size <= 100\n  CLEAR\n  offset = 0 - (size / 2)\n  GOTO offset offset\n  RECT size size\n  START\n  UNTIL_STEADY steps 100\n  STOP\n  size = size + 1\nEND\n'
     },
     {
-      id: 'explorer-pulsar-gol-sign',
-      name: 'Pulsar GOL Sign',
+      id: 'empty-script',
+      name: 'Empty Script',
       audience: 'All',
-      difficulty: 'Explorer',
-      description: 'Render GOL by stamping pulsars on a 5x7 text grid.',
-      challenge: 'Swap the text and spacing to create your own pulsar banner.',
-      code: [
-        'api.clear();',
-        'api.stamp("pulsar", -236, -108);',
-        'api.drawStampText("GOL", -160, -84, "pulsar", 16, 2);',
-        'api.stamp("pulsar", 168, 36);',
-        'api.log("Pulsar GOL sign deployed.");'
-      ].join('\n')
-    },
-    {
-      id: 'explorer-pulsar-bryan',
-      name: 'Pulsar BRYAN Banner',
-      audience: 'All',
-      difficulty: 'Explorer',
-      description: 'Build a nameplate using pulsars as text pixels plus glider accents.',
-      challenge: 'Try your own name and tweak spacing/density for visual balance.',
-      code: [
-        'api.clear();',
-        'api.drawStampText("BRYAN", -240, -80, "pulsar", 13, 2);',
-        'for (let i = 0; i < 6; i += 1) {',
-        '  api.stamp("glider", -220 + i * 38, 48 + ((i % 2) * 4));',
-        '}',
-        'api.log("Pulsar BRYAN banner ready.");'
-      ].join('\n')
-    },
-    {
-      id: 'explorer-pulsar-open-to-roles',
-      name: 'Pulsar OPEN TO ROLES',
-      audience: 'All',
-      difficulty: 'Explorer',
-      description: 'Draw a bold message using pulsar glyphs and a moving glider escort.',
-      challenge: 'Swap in your own message and tune spacing for your display.',
-      code: [
-        'api.clear();',
-        'api.drawStampText("OPEN TO ROLES", -310, -96, "pulsar", 12, 2);',
-        'for (let i = 0; i < 10; i += 1) {',
-        '  api.stamp("glider", -300 + i * 58, 72 + (i % 3));',
-        '}',
-        'api.log("Pulsar recruiting banner ready.");'
-      ].join('\n')
+      difficulty: 'Starter',
+      description: 'Blank starting point for custom scripts.',
+      challenge: 'Try PENDOWN, GOTO, RECT, and STEP.',
+      code: '# Enter your commands here\nCLEAR\nPENDOWN\n'
     }
   ];
 
-  private readonly learningPanels: ScriptLearningPanel[] = [
-    {
-      id: 'teens-experiment-analyst',
-      title: 'Experiment Analyst',
-      audience: 'Teens',
-      focus: 'Run repeatable experiments and compare stabilization outcomes.',
-      tryThis: 'Load "Steady Squares" and compare step counts as the square grows.',
-      templateId: 'explorer-steady-squares'
-    },
-    {
-      id: 'kids-pattern-artist',
-      title: 'Pattern Artist',
-      audience: 'Kids',
-      focus: 'Use ready-made stamps to paint words and motifs.',
-      tryThis: 'Load "Pulsar GOL Sign" then replace the text.',
-      templateId: 'explorer-pulsar-gol-sign'
-    },
-    {
-      id: 'teens-portfolio-banner',
-      title: 'Portfolio Banner',
-      audience: 'Teens',
-      focus: 'Design high-visibility patterns for demos and social screenshots.',
-      tryThis: 'Load "Pulsar OPEN TO ROLES" and customize the message.',
-      templateId: 'explorer-pulsar-open-to-roles'
-    }
-  ];
+  private readonly learningPanels: ScriptLearningPanel[] = [];
 
-  private readonly apiReference: string[] = [
-    'api.clear()',
-    'api.setCell(x, y, alive?)',
-    'api.toggleCell(x, y)',
-    'api.addCells([{ x, y }, ...])',
-    'api.replaceCells([{ x, y }, ...])',
-    'api.fillRect(x, y, width, height, alive?)',
-    'api.frameRect(x, y, width, height, alive?)',
-    'api.line(x0, y0, x1, y1, alive?)',
-    'api.randomRect(x, y, width, height, density?)',
-    'api.stamp("glider" | "blinker" | "block" | "lwss" | "pulsar", x, y)',
-    'api.drawStampText(text, x, y, stampName?, cellSpacing?, letterSpacing?)',
-    'api.loadRle(text, name?)',
-    'api.step(generations?)',
-    'api.untilSteady(maxSteps?, historyWindow?) -> { stable, steps, period }',
-    'api.pause() / api.start()',
-    'api.wait(ms)',
-    'api.log(message)'
+  private readonly languageReference: string[] = [
+    'Commands:',
+    'PENDOWN, PENUP, GOTO x y, RECT w h, CLEAR',
+    'STEP n, START, STOP, CAPTURE name',
+    'PRINT expr, COUNT varName, LABEL expr, UNTIL_STEADY varName maxSteps',
+    '',
+    'Control flow:',
+    'IF cond ... ELSE ... END',
+    'WHILE cond ... END',
+    'FOR i FROM start TO end [STEP n] ... END',
+    '',
+    'Expressions:',
+    'x = 4, name = "hello", x = x + 1',
+    'String funcs: STRLEN, TOUPPER, TOLOWER, TRIM, SUBSTRING, INDEX, REPLACE',
+    'Conditions: ==, !=, <, >, <=, >= with AND / OR / NOT',
+    '',
+    'Notes:',
+    '- Lines starting with # are comments.',
+    '- Use END to close IF/WHILE/FOR blocks.'
   ];
 
   getTemplates() {
@@ -198,7 +168,7 @@ export class ScriptPlaygroundService {
   }
 
   getApiReference() {
-    return this.apiReference.slice();
+    return this.languageReference.slice();
   }
 
   findTemplate(templateId: string | null | undefined) {
@@ -207,50 +177,56 @@ export class ScriptPlaygroundService {
   }
 
   async runScript(scriptCode: string, context: ScriptExecutionContext): Promise<ScriptRunResult> {
-    const source = String(scriptCode || '').trim();
-    if (!source) {
+    const source = String(scriptCode || '');
+    const lines = source.split(/\r?\n/);
+    const blocks = this.parseBlocks(lines);
+    if (!blocks.length) {
       throw new Error('Script is empty.');
     }
 
     const startedAt = Date.now();
-    const model = context.model;
-    const runtime = context.runtime;
-    const shapeImport = context.shapeImport;
-    const getGeneration = context.getGeneration;
+    const runId = `script-${startedAt}-${Math.floor(Math.random() * 1_000_000)}`;
     const signal = context.signal;
-    const maxOperations = this.normalizeMaxOperations(context.maxOperations);
+
     const logs: string[] = [];
+    const model = context.model;
+    let runStateIntent: ScriptRunStateIntent = 'unchanged';
+
     let operationCount = 0;
     let currentAction = 'Initializing script';
 
     const emitLog = (line: string) => {
+      logs.push(line);
       if (typeof context.onLog === 'function') {
         context.onLog(line);
       }
     };
 
-    const pushLog = (message: unknown) => {
-      const line = String(message ?? '');
-      logs.push(line);
-      emitLog(line);
-    };
-
-    const emitProgress = (phase: 'start' | 'running' | 'complete') => {
+    const emitProgress = (phase: 'start' | 'running' | 'complete', blockIndex = 0) => {
       if (typeof context.onProgress !== 'function') return;
-      const rawPercent = maxOperations > 0 ? (operationCount / maxOperations) * 100 : 0;
+      const percent = Math.max(0, Math.min(100, (blockIndex / Math.max(1, blocks.length)) * 100));
       context.onProgress({
         phase,
         operationCount,
-        maxOperations,
         action: currentAction,
-        percent: Math.max(0, Math.min(100, rawPercent)),
+        percent,
         elapsedMs: Date.now() - startedAt
       });
     };
 
-    const setAction = (action: string) => {
-      currentAction = String(action || '').trim() || currentAction;
-      emitProgress('running');
+    const emitWorldChange = (
+      reason: ScriptWorldChangeEvent['reason'],
+      line: number,
+      command: string
+    ) => {
+      if (typeof context.onWorldChange !== 'function') return;
+      context.onWorldChange({
+        reason,
+        line,
+        command,
+        generation: context.getGeneration(),
+        liveCellCount: model.getLiveCells().length
+      });
     };
 
     const throwIfAborted = () => {
@@ -259,252 +235,467 @@ export class ScriptPlaygroundService {
       }
     };
 
-    emitProgress('start');
-    throwIfAborted();
-
     const consume = (amount = 1) => {
-      const normalized = Math.max(1, Math.floor(Number(amount) || 1));
-      throwIfAborted();
-      operationCount += normalized;
-      if (operationCount > maxOperations) {
-        throw new Error(`Script exceeded operation limit (${maxOperations}). Try smaller loops or regions.`);
-      }
-      emitProgress('running');
+      operationCount += Math.max(1, Math.floor(Number(amount) || 1));
     };
 
-    const runUntilSteady = async (maxStepsInput: number, historyWindowInput: number) => {
-      const maxSteps = Math.max(1, Math.min(20_000, Math.floor(Number(maxStepsInput) || 1)));
-      const historyWindow = Math.max(2, Math.min(256, Math.floor(Number(historyWindowInput) || 18)));
+    const syncModelFromState = (state: ScriptState) => {
+      const live: Cell[] = [];
+      for (const key of state.cells) {
+        const [xText, yText] = key.split(',');
+        const x = Math.floor(Number(xText));
+        const y = Math.floor(Number(yText));
+        if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+        live.push({ x, y });
+      }
+      model.setLiveCells(live, context.getGeneration());
+    };
+
+    const state: ScriptState = {
+      cells: new Set(model.getLiveCells().map((cell) => `${cell.x},${cell.y}`)),
+      vars: {},
+      output: [],
+      x: 0,
+      y: 0,
+      penDown: false
+    };
+
+    const runUntilSteady = async (varName: string, maxSteps: number, line: number) => {
+      let stepCount = 0;
+      let stable = false;
+      let period = 0;
+
+      const signature = (cells: Set<string>) => Array.from(cells).sort().join('|');
       const seen = new Map<string, number>();
-      const queue: string[] = [];
-      const initialSignature = this.serializeCells(model.getLiveCells());
-      seen.set(initialSignature, 0);
-      queue.push(initialSignature);
-      let steps = 0;
-      while (steps < maxSteps) {
+      const initial = signature(state.cells);
+      seen.set(initial, 0);
+
+      while (stepCount < maxSteps && !stable) {
         throwIfAborted();
         model.step(1);
+        stepCount += 1;
         consume(1);
-        steps += 1;
+        state.cells = new Set(model.getLiveCells().map((cell) => `${cell.x},${cell.y}`));
+        emitWorldChange('until-steady', line, 'UNTIL_STEADY');
 
-        const signature = this.serializeCells(model.getLiveCells());
-        const previousStep = seen.get(signature);
-        if (typeof previousStep === 'number') {
-          return {
-            stable: true,
-            steps,
-            period: Math.max(1, steps - previousStep)
-          };
-        }
-        seen.set(signature, steps);
-        queue.push(signature);
-        if (queue.length > historyWindow) {
-          const removed = queue.shift();
-          if (removed) {
-            seen.delete(removed);
-          }
+        const next = signature(state.cells);
+        const previous = seen.get(next);
+        if (typeof previous === 'number') {
+          stable = true;
+          period = Math.max(1, stepCount - previous);
+        } else {
+          seen.set(next, stepCount);
         }
 
-        if (steps % 64 === 0) {
+        if (stepCount % 8 === 0) {
           await this.delayWithAbort(0, signal);
         }
       }
-      return { stable: false, steps: maxSteps, period: 0 };
+
+      state.vars[varName] = stable ? stepCount : -1;
+      if (stable && period > 0) {
+        state.vars[`${varName}_period`] = period;
+      }
+      emitLog(`UNTIL_STEADY ${varName}=${state.vars[varName]}`);
     };
 
-    const api = {
-      clear: () => {
-        setAction('api.clear()');
-        consume(1);
-        model.clear();
-      },
-      setCell: (x: number, y: number, alive = true) => {
-        setAction('api.setCell(x, y)');
-        consume(1);
-        model.setCellAlive(this.toInt(x), this.toInt(y), !!alive);
-      },
-      toggleCell: (x: number, y: number) => {
-        setAction('api.toggleCell(x, y)');
-        consume(1);
-        model.toggleCell(this.toInt(x), this.toInt(y));
-      },
-      addCells: (cells: ScriptCell[]) => {
-        setAction('api.addCells([...])');
-        const normalized = this.normalizeCells(cells);
-        consume(normalized.length || 1);
-        for (const cell of normalized) {
-          throwIfAborted();
-          model.setCellAlive(cell.x, cell.y, true);
-        }
-      },
-      replaceCells: (cells: ScriptCell[]) => {
-        setAction('api.replaceCells([...])');
-        const normalized = this.normalizeCells(cells);
-        consume(normalized.length || 1);
-        throwIfAborted();
-        model.setLiveCells(normalized, getGeneration());
-      },
-      fillRect: (x: number, y: number, width: number, height: number, alive = true) => {
-        setAction('api.fillRect(...)');
-        const points = this.computeFilledRect(this.toInt(x), this.toInt(y), this.toInt(width), this.toInt(height));
-        consume(points.length || 1);
-        for (let i = 0; i < points.length; i += 1) {
-          if (i % 128 === 0) throwIfAborted();
-          const [px, py] = points[i];
-          model.setCellAlive(px, py, !!alive);
-        }
-      },
-      frameRect: (x: number, y: number, width: number, height: number, alive = true) => {
-        setAction('api.frameRect(...)');
-        const points = this.computeRectPerimeter(this.toInt(x), this.toInt(y), this.toInt(width), this.toInt(height));
-        consume(points.length || 1);
-        for (let i = 0; i < points.length; i += 1) {
-          if (i % 128 === 0) throwIfAborted();
-          const [px, py] = points[i];
-          model.setCellAlive(px, py, !!alive);
-        }
-      },
-      line: (x0: number, y0: number, x1: number, y1: number, alive = true) => {
-        setAction('api.line(...)');
-        const points = this.computeLine(this.toInt(x0), this.toInt(y0), this.toInt(x1), this.toInt(y1));
-        consume(points.length || 1);
-        for (let i = 0; i < points.length; i += 1) {
-          if (i % 128 === 0) throwIfAborted();
-          const [px, py] = points[i];
-          model.setCellAlive(px, py, !!alive);
-        }
-      },
-      randomRect: (x: number, y: number, width: number, height: number, density = 0.35) => {
-        setAction('api.randomRect(...)');
-        const points = this.computeFilledRect(this.toInt(x), this.toInt(y), this.toInt(width), this.toInt(height));
-        const p = Math.max(0, Math.min(1, Number(density) || 0));
-        consume(points.length || 1);
-        for (let i = 0; i < points.length; i += 1) {
-          if (i % 128 === 0) throwIfAborted();
-          const [px, py] = points[i];
-          if (Math.random() < p) {
-            model.setCellAlive(px, py, true);
-          }
-        }
-      },
-      stamp: (patternName: string, x: number, y: number) => {
-        setAction(`api.stamp("${patternName}", x, y)`);
-        const stamp = this.getStamp(patternName);
-        consume(stamp.length || 1);
-        const anchorX = this.toInt(x);
-        const anchorY = this.toInt(y);
-        for (const [sx, sy] of stamp) {
-          throwIfAborted();
-          model.setCellAlive(anchorX + sx, anchorY + sy, true);
-        }
-      },
-      drawStampText: (text: string, x: number, y: number, stampName = 'pulsar', cellSpacing = 16, letterSpacing = 2) => {
-        const message = String(text || '').toUpperCase();
-        const spacing = Math.max(8, this.toInt(cellSpacing));
-        const gap = Math.max(1, this.toInt(letterSpacing));
-        const stamp = this.getStamp(stampName);
-        let cursorX = this.toInt(x);
-        const cursorY = this.toInt(y);
-        let placements = 0;
-        setAction(`api.drawStampText("${message}", ...)`);
+    const executeCommand = async (line: string, lineNumber: number) => {
+      throwIfAborted();
 
-        for (const rawChar of message) {
-          if (rawChar === ' ') {
-            cursorX += (5 + gap) * spacing;
-            continue;
-          }
-          const glyph = STAMP_TEXT_GLYPHS[rawChar] || STAMP_TEXT_GLYPHS['?'];
-          const glyphWidth = glyph[0]?.length || 5;
-          for (let row = 0; row < glyph.length; row += 1) {
-            const rowText = String(glyph[row] || '');
-            for (let col = 0; col < glyphWidth; col += 1) {
-              if (rowText[col] !== '1') continue;
-              const anchorX = cursorX + col * spacing;
-              const anchorY = cursorY + row * spacing;
-              consume(stamp.length || 1);
-              placements += 1;
-              for (const [sx, sy] of stamp) {
-                throwIfAborted();
-                model.setCellAlive(anchorX + sx, anchorY + sy, true);
-              }
+      if (/^PENDOWN$/i.test(line)) {
+        currentAction = 'PENDOWN';
+        state.penDown = true;
+        consume(1);
+        return;
+      }
+      if (/^PENUP$/i.test(line)) {
+        currentAction = 'PENUP';
+        state.penDown = false;
+        consume(1);
+        return;
+      }
+
+      const gotoMatch = line.match(/^GOTO\s+(\S+)\s+(\S+)$/i);
+      if (gotoMatch) {
+        currentAction = 'GOTO';
+        state.x = Math.floor(Number(this.parseValue(gotoMatch[1], state)) || 0);
+        state.y = Math.floor(Number(this.parseValue(gotoMatch[2], state)) || 0);
+        consume(1);
+        return;
+      }
+
+      const rectMatch = line.match(/^RECT\s+(\S+)\s+(\S+)$/i);
+      if (rectMatch) {
+        currentAction = 'RECT';
+        const width = Math.floor(Number(this.parseValue(rectMatch[1], state)) || 0);
+        const height = Math.floor(Number(this.parseValue(rectMatch[2], state)) || 0);
+        const w = Math.max(0, width);
+        const h = Math.max(0, height);
+        if (state.penDown) {
+          for (let dx = 0; dx < w; dx += 1) {
+            for (let dy = 0; dy < h; dy += 1) {
+              state.cells.add(`${state.x + dx},${state.y + dy}`);
+              consume(1);
             }
           }
-          cursorX += (glyphWidth + gap) * spacing;
+          syncModelFromState(state);
+          emitWorldChange('command', lineNumber, 'RECT');
+        } else {
+          consume(1);
         }
-        pushLog(`Stamped ${placements} "${stampName}" glyphs for "${message}".`);
-        return placements;
-      },
-      loadRle: (rleText: string, name = 'Script Import') => {
-        setAction('api.loadRle(...)');
-        const parsed = shapeImport.parse(String(rleText || ''), String(name || 'Script Import'));
-        consume(parsed.cells.length || 1);
+        return;
+      }
+
+      if (/^CLEAR$/i.test(line)) {
+        currentAction = 'CLEAR';
+        state.cells.clear();
+        consume(1);
+        model.clear();
+        emitWorldChange('command', lineNumber, 'CLEAR');
+        return;
+      }
+
+      const stepMatch = line.match(/^STEP\s+(\d+)$/i);
+      if (stepMatch) {
+        currentAction = 'STEP';
+        const n = Math.max(0, Math.floor(Number(stepMatch[1])));
+        for (let i = 0; i < n; i += 1) {
+          throwIfAborted();
+          model.step(1);
+          state.cells = new Set(model.getLiveCells().map((cell) => `${cell.x},${cell.y}`));
+          consume(1);
+          emitWorldChange('step', lineNumber, 'STEP');
+          await this.delayWithAbort(16, signal);
+        }
+        return;
+      }
+
+      if (/^START$/i.test(line)) {
+        currentAction = 'START';
+        runStateIntent = 'running';
+        consume(1);
+        emitLog('START intent recorded: runtime will be running after script ends.');
+        return;
+      }
+
+      if (/^STOP$/i.test(line)) {
+        currentAction = 'STOP';
+        runStateIntent = 'paused';
+        consume(1);
+        emitLog('STOP intent recorded: runtime will remain paused after script ends.');
+        return;
+      }
+
+      const captureMatch = line.match(/^CAPTURE\s+(.+)$/i);
+      if (captureMatch) {
+        currentAction = 'CAPTURE';
+        emitLog(`Captured pattern "${captureMatch[1].trim()}" (${state.cells.size} cells)`);
+        consume(1);
+        return;
+      }
+
+      const printMatch = line.match(/^PRINT\s+(.+)$/i);
+      if (printMatch) {
+        currentAction = 'PRINT';
+        const value = this.evalExpr(printMatch[1], state);
+        emitLog(String(value));
+        state.output.push(String(value));
+        consume(1);
+        return;
+      }
+
+      const countMatch = line.match(/^COUNT\s+([a-zA-Z_][a-zA-Z0-9_]*)$/i);
+      if (countMatch) {
+        currentAction = 'COUNT';
+        state.vars[countMatch[1]] = state.cells.size;
+        consume(1);
+        return;
+      }
+
+      const labelMatch = line.match(/^LABEL\s+(.+)$/i);
+      if (labelMatch) {
+        currentAction = 'LABEL';
+        const label = this.evalExpr(labelMatch[1], state);
+        emitLog(`LABEL (${state.x},${state.y}): ${String(label)}`);
+        consume(1);
+        return;
+      }
+
+      const untilSteadyMatch = line.match(/^UNTIL_STEADY\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+(\S+)$/i);
+      if (untilSteadyMatch) {
+        currentAction = 'UNTIL_STEADY';
+        const varName = untilSteadyMatch[1];
+        const maxSteps = Math.max(1, Math.floor(Number(this.parseValue(untilSteadyMatch[2], state)) || 1));
+        await runUntilSteady(varName, maxSteps, lineNumber);
+        return;
+      }
+
+      const assignMatch = line.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.+)$/);
+      if (assignMatch) {
+        currentAction = 'ASSIGN';
+        state.vars[assignMatch[1]] = this.evalExpr(assignMatch[2], state);
+        consume(1);
+        return;
+      }
+
+      throw new Error(`Unknown command: ${line}`);
+    };
+
+    const executeBlock = async (subset: Block[]) => {
+      let i = 0;
+      while (i < subset.length) {
         throwIfAborted();
-        model.setLiveCells(parsed.cells, getGeneration());
-      },
-      step: (generations = 1) => {
-        const steps = Math.max(1, Math.min(10_000, Math.floor(Number(generations) || 1)));
-        setAction(`api.step(${steps})`);
-        consume(steps);
-        throwIfAborted();
-        model.step(steps);
-      },
-      untilSteady: async (maxSteps = 512, historyWindow = 18) => {
-        setAction(`api.untilSteady(${maxSteps}, ${historyWindow})`);
-        return runUntilSteady(maxSteps, historyWindow);
-      },
-      getLiveCells: () => model.getLiveCells(),
-      getGeneration: () => getGeneration(),
-      pause: () => {
-        setAction('api.pause()');
-        throwIfAborted();
-        runtime.pause();
-      },
-      start: () => {
-        setAction('api.start()');
-        throwIfAborted();
-        runtime.start();
-      },
-      wait: (ms: number) => {
-        const timeout = Math.max(0, Math.min(2000, Math.floor(Number(ms) || 0)));
-        setAction(`api.wait(${timeout})`);
-        consume(Math.max(1, Math.ceil(timeout / 50)));
-        return this.delayWithAbort(timeout, signal);
-      },
-      log: (message: unknown) => {
-        setAction('api.log(...)');
-        pushLog(message);
+        const line = subset[i].line;
+
+        const forMatch = line.match(/^FOR\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+FROM\s+(.+?)\s+TO\s+(.+?)(?:\s+STEP\s+(.+))?$/i);
+        if (forMatch) {
+          const varName = forMatch[1];
+          const start = Math.floor(Number(this.evalExpr(forMatch[2], state)) || 0);
+          const end = Math.floor(Number(this.evalExpr(forMatch[3], state)) || 0);
+          const step = Math.floor(Number(this.evalExpr(forMatch[4] || '1', state)) || 0);
+          if (step === 0) throw new Error('FOR loop STEP cannot be zero');
+
+          const loopEnd = this.findControlBlockEnd(subset, i, /^FOR\s+/i);
+          const body = subset.slice(i + 1, loopEnd);
+          if (step > 0) {
+            for (let value = start; value <= end; value += step) {
+              state.vars[varName] = value;
+              await executeBlock(body);
+            }
+          } else {
+            for (let value = start; value >= end; value += step) {
+              state.vars[varName] = value;
+              await executeBlock(body);
+            }
+          }
+          i = loopEnd + 1;
+          emitProgress('running', subset[Math.min(i, subset.length - 1)].idx + 1);
+          continue;
+        }
+
+        const whileMatch = line.match(/^WHILE\s+(.+)$/i);
+        if (whileMatch) {
+          const condition = whileMatch[1];
+          const loopEnd = this.findControlBlockEnd(subset, i, /^WHILE\s+/i);
+          const body = subset.slice(i + 1, loopEnd);
+          while (!signal?.aborted && this.evalCondCompound(condition, state)) {
+            await executeBlock(body);
+          }
+          i = loopEnd + 1;
+          emitProgress('running', subset[Math.min(i, subset.length - 1)].idx + 1);
+          continue;
+        }
+
+        const ifMatch = line.match(/^IF\s+(.+)$/i);
+        if (ifMatch) {
+          const condition = ifMatch[1];
+          const blockEnd = this.findControlBlockEnd(subset, i, /^IF\s+/i);
+          const elseIdx = this.findElseIndex(subset, i, blockEnd);
+          if (this.evalCondCompound(condition, state)) {
+            const ifBody = subset.slice(i + 1, elseIdx >= 0 ? elseIdx : blockEnd);
+            await executeBlock(ifBody);
+          } else if (elseIdx >= 0) {
+            const elseBody = subset.slice(elseIdx + 1, blockEnd);
+            await executeBlock(elseBody);
+          }
+          i = blockEnd + 1;
+          emitProgress('running', subset[Math.min(i, subset.length - 1)].idx + 1);
+          continue;
+        }
+
+        if (/^ELSE$/i.test(line) || /^END$/i.test(line)) {
+          i += 1;
+          continue;
+        }
+
+        await executeCommand(line, subset[i].idx + 1);
+        currentAction = `L${subset[i].idx + 1}: ${line}`;
+        emitProgress('running', subset[i].idx + 1);
+        i += 1;
       }
     };
 
-    const runner = new Function('api', `"use strict"; return (async () => {\n${source}\n})();`) as (apiArg: typeof api) => Promise<unknown>;
-    try {
-      await runner(api);
-      throwIfAborted();
-    } catch (error: unknown) {
-      if (signal?.aborted) {
-        throw new Error('Script execution canceled by user.');
-      }
-      const message = String((error as { message?: unknown })?.message || error || 'Script execution failed.');
-      throw new Error(`Script failed during ${currentAction}: ${message}`);
-    }
+    emitProgress('start', 0);
+    await executeBlock(blocks);
+    throwIfAborted();
 
-    const generation = getGeneration();
+    const generation = context.getGeneration();
     const liveCellCount = model.getLiveCells().length;
     if (!logs.length) {
-      pushLog(`Script finished at generation ${generation}.`);
+      emitLog(`Script finished at generation ${generation}.`);
     }
     currentAction = 'Completed';
-    emitProgress('complete');
-    const durationMs = Date.now() - startedAt;
+    emitProgress('complete', blocks.length);
 
     return {
       generation,
       liveCellCount,
       operationCount,
-      durationMs,
+      durationMs: Date.now() - startedAt,
       logs: logs.slice(),
-      output: logs.join('\n')
+      output: logs.join('\n'),
+      runStateIntent,
+      runId
     };
+  }
+
+  private parseBlocks(rawLines: string[]) {
+    const blocks: Block[] = [];
+    for (let i = 0; i < rawLines.length; i += 1) {
+      const raw = String(rawLines[i] || '');
+      const line = raw.trim();
+      if (!line || line.startsWith('#')) continue;
+      const indent = (raw.match(/^\s*/) || [''])[0].length;
+      blocks.push({ line, indent, idx: i });
+    }
+    return blocks;
+  }
+
+  private findControlBlockEnd(blocks: Block[], startIndex: number, opener: RegExp) {
+    let nest = 1;
+    let idx = startIndex + 1;
+    while (idx < blocks.length && nest > 0) {
+      const line = blocks[idx].line;
+      if (opener.test(line)) nest += 1;
+      if (/^END$/i.test(line)) nest -= 1;
+      idx += 1;
+    }
+    return Math.max(startIndex, idx - 1);
+  }
+
+  private findElseIndex(blocks: Block[], startIndex: number, endIndex: number) {
+    for (let idx = startIndex + 1; idx < endIndex; idx += 1) {
+      if (/^ELSE$/i.test(blocks[idx].line) && blocks[idx].indent === blocks[startIndex].indent) {
+        return idx;
+      }
+    }
+    return -1;
+  }
+
+  private parseValue(token: string, state: ScriptState): number | string | boolean {
+    const tok = String(token || '').trim();
+    if (!tok) return 0;
+    if (/^".*"$/.test(tok)) return tok.slice(1, -1);
+    if (/^-?\d+(\.\d+)?$/.test(tok)) return Number(tok);
+    if (tok in state.vars) return state.vars[tok];
+    return 0;
+  }
+
+  private evalExpr(expr: string, state: ScriptState): number | string | boolean {
+    const value = String(expr || '').trim();
+    if (!value) return 0;
+
+    let match = value.match(/^STRLEN\s*\(\s*(.+?)\s*\)$/i);
+    if (match) return String(this.parseValue(match[1], state)).length;
+
+    match = value.match(/^TOUPPER\s*\(\s*(.+?)\s*\)$/i);
+    if (match) return String(this.parseValue(match[1], state)).toUpperCase();
+
+    match = value.match(/^TOLOWER\s*\(\s*(.+?)\s*\)$/i);
+    if (match) return String(this.parseValue(match[1], state)).toLowerCase();
+
+    match = value.match(/^TRIM\s*\(\s*(.+?)\s*\)$/i);
+    if (match) return String(this.parseValue(match[1], state)).trim();
+
+    match = value.match(/^SUBSTRING\s*\(\s*(.+?)\s*,\s*(.+?)\s*,\s*(.+?)\s*\)$/i);
+    if (match) {
+      const source = String(this.parseValue(match[1], state));
+      const start = Math.floor(Number(this.parseValue(match[2], state)));
+      const end = Math.floor(Number(this.parseValue(match[3], state)));
+      return source.substring(start, end);
+    }
+
+    match = value.match(/^INDEX\s*\(\s*(.+?)\s*,\s*(.+?)\s*\)$/i);
+    if (match) {
+      const source = String(this.parseValue(match[1], state));
+      const pattern = String(this.parseValue(match[2], state));
+      return source.indexOf(pattern);
+    }
+
+    match = value.match(/^REPLACE\s*\(\s*(.+?)\s*,\s*(.+?)\s*,\s*(.+?)\s*\)$/i);
+    if (match) {
+      const source = String(this.parseValue(match[1], state));
+      const oldValue = String(this.parseValue(match[2], state));
+      const newValue = String(this.parseValue(match[3], state));
+      return source.split(oldValue).join(newValue);
+    }
+
+    match = value.match(/^(.+)\s*([+\-*/])\s*(.+)$/);
+    if (match) {
+      const left = this.parseValue(match[1], state);
+      const right = this.parseValue(match[3], state);
+      switch (match[2]) {
+        case '+':
+          if (typeof left === 'string' || typeof right === 'string') return String(left) + String(right);
+          return Number(left) + Number(right);
+        case '-':
+          return Number(left) - Number(right);
+        case '*':
+          return Number(left) * Number(right);
+        case '/':
+          return Number(left) / Number(right);
+      }
+    }
+
+    return this.parseValue(value, state);
+  }
+
+  private evalCond(lhs: string, op: string, rhs: string, state: ScriptState) {
+    const a = this.parseValue(lhs, state);
+    const b = this.parseValue(rhs, state);
+    switch (op) {
+      case '==': return a === b;
+      case '!=': return a !== b;
+      case '<': return Number(a) < Number(b);
+      case '>': return Number(a) > Number(b);
+      case '<=': return Number(a) <= Number(b);
+      case '>=': return Number(a) >= Number(b);
+      default: return false;
+    }
+  }
+
+  private evalCondCompound(condition: string, state: ScriptState): boolean {
+    const cond = String(condition || '').trim();
+    if (!cond) return false;
+    return this.parseOr(cond, state);
+  }
+
+  private parseOr(expr: string, state: ScriptState): boolean {
+    const match = expr.match(/\s+OR\s+/i);
+    if (!match || match.index === undefined) {
+      return this.parseAnd(expr, state);
+    }
+    const left = expr.slice(0, match.index).trim();
+    const right = expr.slice(match.index + match[0].length).trim();
+    return this.parseAnd(left, state) || this.parseOr(right, state);
+  }
+
+  private parseAnd(expr: string, state: ScriptState): boolean {
+    const match = expr.match(/\s+AND\s+/i);
+    if (!match || match.index === undefined) {
+      return this.parseNot(expr, state);
+    }
+    const left = expr.slice(0, match.index).trim();
+    const right = expr.slice(match.index + match[0].length).trim();
+    return this.parseNot(left, state) && this.parseAnd(right, state);
+  }
+
+  private parseNot(expr: string, state: ScriptState): boolean {
+    const trimmed = expr.trim();
+    const match = trimmed.match(/^NOT\s+(.+)$/i);
+    if (match) {
+      return !this.parseNot(match[1], state);
+    }
+    return this.parseComparison(trimmed, state);
+  }
+
+  private parseComparison(expr: string, state: ScriptState): boolean {
+    const match = expr.match(/^(.+?)\s*(==|!=|<=|>=|<|>)\s*(.+)$/);
+    if (match) {
+      return this.evalCond(match[1].trim(), match[2], match[3].trim(), state);
+    }
+    const value = this.parseValue(expr, state);
+    return value !== 0 && value !== '' && value !== false;
   }
 
   private delayWithAbort(ms: number, signal?: AbortSignal): Promise<void> {
@@ -528,132 +719,5 @@ export class ScriptPlaygroundService {
         signal.addEventListener('abort', onAbort, { once: true });
       }
     });
-  }
-
-  private normalizeMaxOperations(input: number | null | undefined) {
-    const candidate = Math.floor(Number(input));
-    if (!Number.isFinite(candidate) || candidate < 1000) {
-      return this.defaultMaxOperations;
-    }
-    return Math.min(5_000_000, candidate);
-  }
-
-  private normalizeCells(cells: ScriptCell[]) {
-    const source = Array.isArray(cells) ? cells : [];
-    const dedupe = new Set<string>();
-    const normalized: Cell[] = [];
-    for (const cell of source) {
-      const x = this.toInt(cell?.x);
-      const y = this.toInt(cell?.y);
-      if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
-      const key = `${x},${y}`;
-      if (dedupe.has(key)) continue;
-      dedupe.add(key);
-      normalized.push({ x, y });
-    }
-    return normalized;
-  }
-
-  private toInt(value: unknown) {
-    const parsed = Math.floor(Number(value));
-    if (!Number.isFinite(parsed)) return 0;
-    return parsed;
-  }
-
-  private computeFilledRect(x: number, y: number, width: number, height: number): ScriptPoint[] {
-    const points: ScriptPoint[] = [];
-    const w = Math.max(1, Math.abs(width));
-    const h = Math.max(1, Math.abs(height));
-    const xDir = width < 0 ? -1 : 1;
-    const yDir = height < 0 ? -1 : 1;
-    for (let iy = 0; iy < h; iy += 1) {
-      for (let ix = 0; ix < w; ix += 1) {
-        points.push([x + ix * xDir, y + iy * yDir]);
-      }
-    }
-    return points;
-  }
-
-  private computeRectPerimeter(x: number, y: number, width: number, height: number): ScriptPoint[] {
-    const points: ScriptPoint[] = [];
-    const w = Math.max(1, Math.abs(width));
-    const h = Math.max(1, Math.abs(height));
-    const xDir = width < 0 ? -1 : 1;
-    const yDir = height < 0 ? -1 : 1;
-    for (let ix = 0; ix < w; ix += 1) {
-      points.push([x + ix * xDir, y]);
-      if (h > 1) {
-        points.push([x + ix * xDir, y + (h - 1) * yDir]);
-      }
-    }
-    for (let iy = 1; iy < h - 1; iy += 1) {
-      points.push([x, y + iy * yDir]);
-      if (w > 1) {
-        points.push([x + (w - 1) * xDir, y + iy * yDir]);
-      }
-    }
-    return points;
-  }
-
-  private computeLine(x0: number, y0: number, x1: number, y1: number): ScriptPoint[] {
-    const points: ScriptPoint[] = [];
-    const dx = Math.abs(x1 - x0);
-    const dy = -Math.abs(y1 - y0);
-    const sx = x0 < x1 ? 1 : -1;
-    const sy = y0 < y1 ? 1 : -1;
-    let err = dx + dy;
-    let x = x0;
-    let y = y0;
-    while (true) {
-      points.push([x, y]);
-      if (x === x1 && y === y1) break;
-      const e2 = err * 2;
-      if (e2 >= dy) {
-        err += dy;
-        x += sx;
-      }
-      if (e2 <= dx) {
-        err += dx;
-        y += sy;
-      }
-    }
-    return points;
-  }
-
-  private serializeCells(cells: Cell[]) {
-    const normalized = this.normalizeCells(cells);
-    normalized.sort((a, b) => (a.y - b.y) || (a.x - b.x));
-    return normalized.map((cell) => `${cell.x},${cell.y}`).join('|');
-  }
-
-  private getStamp(patternName: string): ScriptPoint[] {
-    const key = String(patternName || '').trim().toLowerCase();
-    if (key === 'glider') {
-      return [[0, 1], [1, 2], [2, 0], [2, 1], [2, 2]];
-    }
-    if (key === 'blinker') {
-      return [[0, 0], [1, 0], [2, 0]];
-    }
-    if (key === 'block') {
-      return [[0, 0], [1, 0], [0, 1], [1, 1]];
-    }
-    if (key === 'lwss') {
-      return [[1, 0], [4, 0], [0, 1], [0, 2], [4, 2], [0, 3], [1, 3], [2, 3], [3, 3]];
-    }
-    if (key === 'pulsar') {
-      return [
-        [2, 0], [3, 0], [4, 0], [8, 0], [9, 0], [10, 0],
-        [0, 2], [5, 2], [7, 2], [12, 2],
-        [0, 3], [5, 3], [7, 3], [12, 3],
-        [0, 4], [5, 4], [7, 4], [12, 4],
-        [2, 5], [3, 5], [4, 5], [8, 5], [9, 5], [10, 5],
-        [2, 7], [3, 7], [4, 7], [8, 7], [9, 7], [10, 7],
-        [0, 8], [5, 8], [7, 8], [12, 8],
-        [0, 9], [5, 9], [7, 9], [12, 9],
-        [0, 10], [5, 10], [7, 10], [12, 10],
-        [2, 12], [3, 12], [4, 12], [8, 12], [9, 12], [10, 12]
-      ];
-    }
-    throw new Error(`Unknown stamp "${patternName}". Supported: glider, blinker, block, lwss, pulsar.`);
   }
 }
