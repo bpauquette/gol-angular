@@ -173,6 +173,90 @@
   background: rgba(255, 255, 255, 0.08);
 }
 
+.gol-hashlife-mobile-toggle {
+  display: none;
+}
+
+.gol-mobile-dock {
+  display: none;
+  position: fixed;
+  left: max(10px, env(safe-area-inset-left));
+  right: max(10px, env(safe-area-inset-right));
+  bottom: calc(10px + env(safe-area-inset-bottom));
+  z-index: 900;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 14px;
+  border: 1px solid var(--gol-panel-border);
+  background: rgba(6, 18, 34, 0.94);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(10px);
+}
+
+.gol-mobile-dock button[mat-icon-button] {
+  flex: 1 1 0;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--gol-text-primary);
+}
+
+.gol-mobile-dock button[mat-icon-button]:hover {
+  background: rgba(120, 190, 255, 0.2);
+}
+
+.gol-root.phone-controls .gol-left,
+.gol-root.phone-controls .gol-right,
+.gol-root.phone-controls .gol-center .gol-run,
+.gol-root.phone-controls .gol-toolstrip {
+  display: none;
+}
+
+.gol-root.phone-controls .gol-topbar {
+  grid-template-columns: 1fr;
+  gap: 8px;
+  padding: 8px 10px;
+  padding-top: calc(8px + env(safe-area-inset-top));
+}
+
+.gol-root.phone-controls .gol-center,
+.gol-root.phone-controls .gol-engine-switch {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+.gol-root.phone-controls .gol-engine-select-field {
+  width: 100%;
+  max-width: none;
+}
+
+.gol-root.phone-controls .gol-hashlife-mobile-toggle {
+  display: flex;
+  margin: 8px 10px 0;
+}
+
+.gol-root.phone-controls .gol-hashlife-mobile-toggle button {
+  width: 100%;
+  min-height: 42px;
+}
+
+.gol-root.phone-controls .gol-mobile-dock {
+  display: flex;
+}
+
+.gol-root.phone-controls .gol-shell {
+  height: calc(100vh - 168px);
+  height: calc(100dvh - 168px);
+  min-height: 240px;
+}
+
+.gol-root.phone-controls .gol-statusbar {
+  padding-bottom: calc(6px + env(safe-area-inset-bottom));
+}
+
 .gol-toolstrip {
   display: flex;
   gap: 8px;
@@ -772,6 +856,23 @@
   white-space: nowrap;
 }
 
+.gol-status-mobile-summary {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.gol-status-mobile-chip {
+  font-size: 0.72rem;
+  color: var(--gol-text-secondary);
+  border: 1px solid var(--gol-panel-border);
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 999px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
 .gol-zoom-label {
   min-width: 36px;
   text-align: center;
@@ -1142,6 +1243,36 @@
     gap: 8px;
   }
 
+  .gol-root.phone-controls .gol-statusbar {
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    padding: 6px 8px;
+    margin-bottom: calc(58px + env(safe-area-inset-bottom));
+  }
+
+  .gol-root.phone-controls .gol-status-center {
+    width: auto;
+    flex: 0 0 auto;
+    gap: 2px;
+  }
+
+  .gol-root.phone-controls .gol-status-center button[mat-icon-button] {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    padding: 0;
+  }
+
+  .gol-root.phone-controls .gol-status-mobile-summary {
+    display: inline-flex;
+    flex: 1 1 auto;
+  }
+
+  .gol-root.phone-controls .gol-zoom-label {
+    min-width: 30px;
+    font-size: 0.76rem;
+  }
+
   .gol-dialog-backdrop {
     align-items: flex-end;
     padding: 8px;
@@ -1181,6 +1312,35 @@
 }
 
 @media (max-width: 640px) {
+  .gol-root.phone-controls .gol-mobile-dock {
+    left: max(8px, env(safe-area-inset-left));
+    right: max(8px, env(safe-area-inset-right));
+    bottom: calc(8px + env(safe-area-inset-bottom));
+    padding: 6px;
+    gap: 4px;
+  }
+
+  .gol-root.phone-controls .gol-mobile-dock button[mat-icon-button] {
+    min-height: 42px;
+    min-width: 42px;
+  }
+
+  .gol-root.phone-controls .gol-shell {
+    height: calc(100vh - 160px);
+    height: calc(100dvh - 160px);
+  }
+
+  .gol-root.phone-controls .gol-statusbar {
+    margin-bottom: calc(56px + env(safe-area-inset-bottom));
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+
+  .gol-root.phone-controls .gol-status-mobile-chip {
+    font-size: 0.68rem;
+    padding: 2px 6px;
+  }
+
   .gol-toolbar-btn {
     min-height: 40px;
     padding: 0 12px;

@@ -38,7 +38,7 @@
   <div class="palette-body">
     <div class="palette-list">
       <div class="palette-list-header">
-        <span>Catalog</span>
+        <span class="palette-list-title">Catalog</span>
         <div class="palette-paging">
           <button mat-icon-button (click)="prevPage()" [disabled]="pageIndex === 0"><mat-icon>chevron_left</mat-icon></button>
           <span>{{ pageIndex + 1 }} / {{ totalPages }}</span>
@@ -73,7 +73,7 @@
 
     <div class="palette-preview" *ngIf="selectedShape as shape">
       <div class="palette-preview-title">Preview</div>
-      <app-shape-preview [cells]="shape.cells" [width]="180" [height]="180"></app-shape-preview>
+      <app-shape-preview [cells]="shape.cells" [width]="previewSize" [height]="previewSize"></app-shape-preview>
       <div class="palette-preview-info">
         <div><strong>Name:</strong> {{ shape.name }}</div>
         <div><strong>Cells:</strong> {{ shapeMeta.cellCount }}</div>

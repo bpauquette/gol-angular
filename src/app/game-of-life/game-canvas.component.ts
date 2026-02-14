@@ -50,8 +50,11 @@ export class GameCanvasComponent implements OnChanges, AfterViewInit {
   private resizeObserver?: ResizeObserver;
   private isPointerDown = false;
   private isPanning = false;
+  private isPinching = false;
   private lastHoverCell: { x: number; y: number } | null = null;
   private lastPanPointer: { x: number; y: number } | null = null;
+  private lastPinchDistance = 0;
+  private lastPinchMidpoint: { x: number; y: number } | null = null;
   private drawPending = false;
   private canvasWidthPx = 0;
   private canvasHeightPx = 0;
@@ -105,6 +108,25 @@ export class GameCanvasComponent implements OnChanges, AfterViewInit {
     if (pos) this.canvasEvent.emit({ type: 'down', ...pos });
   }
 
+  @HostListener('touchstart', ['$event'])
+  onTouchStart(event: TouchEvent) {
+    if (event.touches.length >= 2) {
+      event.preventDefault();
+      this.beginPinchGesture(event);
+      return;
+    }
+    if (this.isPinching) return;
+    const touch = this.getPrimaryTouch(event);
+    if (!touch) return;
+    event.preventDefault();
+    this.isPointerDown = true;
+    const pos = this.getCellFromClient(touch.clientX, touch.clientY);
+    this.lastHoverCell = pos;
+    if (!pos) return;
+    this.cursorChange.emit({ x: pos.x, y: pos.y });
+    this.canvasEvent.emit({ type: 'down', ...pos });
+  }
+
   @HostListener('mouseup', ['$event'])
   onPointerUp(event: MouseEvent) {
     this.handlePointerUp(event);
@@ -113,6 +135,26 @@ export class GameCanvasComponent implements OnChanges, AfterViewInit {
   @HostListener('window:mouseup', ['$event'])
   onWindowPointerUp(event: MouseEvent) {
     this.handlePointerUp(event);
+  }
+
+  @HostListener('touchend', ['$event'])
+  onTouchEnd(event: TouchEvent) {
+    this.handleTouchUp(event);
+  }
+
+  @HostListener('window:touchend', ['$event'])
+  onWindowTouchEnd(event: TouchEvent) {
+    this.handleTouchUp(event);
+  }
+
+  @HostListener('touchcancel', ['$event'])
+  onTouchCancel(event: TouchEvent) {
+    this.handleTouchUp(event);
+  }
+
+  @HostListener('window:touchcancel', ['$event'])
+  onWindowTouchCancel(event: TouchEvent) {
+    this.handleTouchUp(event);
   }
 
   @HostListener('window:blur')
@@ -147,6 +189,25 @@ export class GameCanvasComponent implements OnChanges, AfterViewInit {
     }
 
     const pos = this.getCellFromEvent(event);
+    if (!pos) return;
+    this.lastHoverCell = pos;
+    this.cursorChange.emit({ x: pos.x, y: pos.y });
+    if (this.isPointerDown) {
+      this.canvasEvent.emit({ type: 'move', ...pos });
+    }
+  }
+
+  @HostListener('touchmove', ['$event'])
+  onTouchMove(event: TouchEvent) {
+    if (event.touches.length >= 2 || this.isPinching) {
+      this.handlePinchMove(event);
+      return;
+    }
+    const touch = this.getPrimaryTouch(event);
+    if (!touch) return;
+    event.preventDefault();
+
+    const pos = this.getCellFromClient(touch.clientX, touch.clientY);
     if (!pos) return;
     this.lastHoverCell = pos;
     this.cursorChange.emit({ x: pos.x, y: pos.y });
@@ -190,11 +251,15 @@ export class GameCanvasComponent implements OnChanges, AfterViewInit {
   }
 
   private getCellFromEvent(event: MouseEvent) {
+    return this.getCellFromClient(event.clientX, event.clientY);
+  }
+
+  private getCellFromClient(clientX: number, clientY: number) {
     const canvas = this.canvasRef?.nativeElement;
     if (!canvas) return null;
     const rect = canvas.getBoundingClientRect();
-    const xPx = event.clientX - rect.left;
-    const yPx = event.clientY - rect.top;
+    const xPx = clientX - rect.left;
+    const yPx = clientY - rect.top;
     const centerX = this.canvasWidthPx / 2;
     const centerY = this.canvasHeightPx / 2;
     const x = Math.floor(this.offsetX + (xPx - centerX) / this.cellSize);
@@ -219,6 +284,117 @@ export class GameCanvasComponent implements OnChanges, AfterViewInit {
 
     this.isPointerDown = false;
     if (pos) this.canvasEvent.emit({ type: 'up', ...pos });
+  }
+
+  private handleTouchUp(event: TouchEvent) {
+    if (this.isPinching) {
+      if (event.touches && event.touches.length >= 2) {
+        this.capturePinchSnapshot(event.touches[0], event.touches[1]);
+      } else {
+        this.endPinchGesture();
+      }
+      return;
+    }
+    if (!this.isPointerDown) return;
+
+    const touch = this.getPrimaryTouch(event);
+    const pos = touch ? this.getCellFromClient(touch.clientX, touch.clientY) : this.lastHoverCell;
+    this.isPointerDown = false;
+    if (pos) {
+      this.canvasEvent.emit({ type: 'up', ...pos });
+    }
+  }
+
+  private getPrimaryTouch(event: TouchEvent): Touch | null {
+    if (event.touches && event.touches.length > 0) {
+      return event.touches[0];
+    }
+    if (event.changedTouches && event.changedTouches.length > 0) {
+      return event.changedTouches[0];
+    }
+    return null;
+  }
+
+  private beginPinchGesture(event: TouchEvent) {
+    if (!event.touches || event.touches.length < 2) return;
+    if (this.isPointerDown && this.lastHoverCell) {
+      this.canvasEvent.emit({ type: 'up', ...this.lastHoverCell });
+    }
+    this.isPointerDown = false;
+    this.isPanning = false;
+    this.lastPanPointer = null;
+    this.isPinching = true;
+    this.capturePinchSnapshot(event.touches[0], event.touches[1]);
+  }
+
+  private handlePinchMove(event: TouchEvent) {
+    if (!event.touches || event.touches.length < 2) return;
+    event.preventDefault();
+
+    const t1 = event.touches[0];
+    const t2 = event.touches[1];
+    const midpoint = this.getTouchMidpoint(t1, t2);
+    const distance = this.getTouchDistance(t1, t2);
+    const canvas = this.canvasRef?.nativeElement;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+
+    if (this.lastPinchMidpoint) {
+      const deltaX = midpoint.x - this.lastPinchMidpoint.x;
+      const deltaY = midpoint.y - this.lastPinchMidpoint.y;
+      if (deltaX || deltaY) {
+        this.panChange.emit({ deltaX, deltaY });
+      }
+    }
+
+    if (this.lastPinchDistance > 0 && distance > 0) {
+      const scale = distance / this.lastPinchDistance;
+      const deltaY = this.scaleToWheelDelta(scale);
+      if (deltaY !== 0) {
+        this.zoomChange.emit({
+          deltaY,
+          screenX: midpoint.x - rect.left,
+          screenY: midpoint.y - rect.top,
+          width: rect.width,
+          height: rect.height
+        });
+      }
+    }
+
+    this.lastPinchDistance = distance;
+    this.lastPinchMidpoint = midpoint;
+  }
+
+  private capturePinchSnapshot(t1: Touch, t2: Touch) {
+    this.lastPinchDistance = this.getTouchDistance(t1, t2);
+    this.lastPinchMidpoint = this.getTouchMidpoint(t1, t2);
+  }
+
+  private endPinchGesture() {
+    this.isPinching = false;
+    this.lastPinchDistance = 0;
+    this.lastPinchMidpoint = null;
+  }
+
+  private getTouchDistance(t1: Touch, t2: Touch) {
+    const dx = t2.clientX - t1.clientX;
+    const dy = t2.clientY - t1.clientY;
+    return Math.hypot(dx, dy);
+  }
+
+  private getTouchMidpoint(t1: Touch, t2: Touch) {
+    return {
+      x: (t1.clientX + t2.clientX) / 2,
+      y: (t1.clientY + t2.clientY) / 2
+    };
+  }
+
+  private scaleToWheelDelta(scale: number) {
+    if (!Number.isFinite(scale) || scale <= 0) return 0;
+    // Match wheel semantics expected by parent: negative delta zooms in, positive zooms out.
+    const delta = Math.log(scale) * -240;
+    if (Math.abs(delta) < 0.01) return 0;
+    return Math.max(-240, Math.min(240, delta));
   }
 
   private shouldStartPan(event: MouseEvent) {

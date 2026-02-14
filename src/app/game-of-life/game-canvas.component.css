@@ -24,6 +24,9 @@ canvas {
   will-change: transform;
   transition: transform 900ms ease;
   cursor: inherit;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 canvas:focus {

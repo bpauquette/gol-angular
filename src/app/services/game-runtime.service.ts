@@ -233,9 +233,9 @@ export class GameRuntimeService implements OnDestroy {
     this.logRuntime('start.request', {
       running: this.isRunningSubject.value,
       engine: this.engineModeSubject.value,
-      generation: this.generationSubject.value
+      generation: this.generationSubject.value,
+      adaCompliance: this.adaComplianceSubject.value
     });
-    if (this.adaComplianceSubject.value) return;
     if (this.isRunningSubject.value) return;
     if (this.engineModeSubject.value === 'hashlife') {
       // Avoid blocking the mode-switch interaction path when the population is large.

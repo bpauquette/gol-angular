@@ -290,4 +290,11 @@ export class ShapePaletteDialogComponent implements OnInit, OnDestroy {
       height: maxY - minY + 1
     };
   }
+
+  get previewSize() {
+    if (typeof window === 'undefined') return 180;
+    if (window.matchMedia('(max-width: 700px)').matches) return 128;
+    if (window.matchMedia('(max-width: 900px)').matches) return 152;
+    return 180;
+  }
 }

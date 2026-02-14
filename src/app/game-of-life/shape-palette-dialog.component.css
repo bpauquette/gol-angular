@@ -1,11 +1,12 @@
 .palette-dialog {
   width: min(1100px, 96vw);
-  max-height: 90vh;
+  max-height: min(90vh, calc(100dvh - 16px));
   color: #e7eef7;
   background: #0f1e33;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  overflow: hidden;
 }
 
 .palette-header {
@@ -91,6 +92,7 @@
   grid-template-columns: minmax(300px, 1fr) minmax(260px, 320px);
   gap: 16px;
   min-height: 320px;
+  min-height: 0;
 }
 
 .palette-list {
@@ -103,9 +105,13 @@
 }
 
 .palette-list-header {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
   align-items: center;
+}
+
+.palette-list-title {
   font-weight: 600;
 }
 
@@ -124,6 +130,7 @@
   align-items: center;
   gap: 6px;
   font-size: 0.85rem;
+  justify-self: center;
 }
 
 .palette-list-scroll {
@@ -258,13 +265,32 @@
 @media (max-width: 900px) {
   .palette-dialog {
     width: 100vw;
-    max-height: 90dvh;
+    height: min(90dvh, calc(100dvh - 10px));
+    max-height: min(90dvh, calc(100dvh - 10px));
     border-radius: 12px 12px 0 0;
-    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+    padding-bottom: 0;
+    overflow: hidden;
   }
 
   .palette-body {
     grid-template-columns: 1fr;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-right: 2px;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom));
+  }
+
+  .palette-list-scroll {
+    max-height: min(34dvh, 300px);
+  }
+
+  .palette-preview {
+    position: sticky;
+    bottom: 0;
+    z-index: 3;
+    border-top: 1px solid rgba(231, 238, 247, 0.16);
+    background: rgba(12, 32, 54, 0.96);
+    backdrop-filter: blur(10px);
   }
 }
 
@@ -286,10 +312,6 @@
     width: 100%;
   }
 
-  .palette-list-scroll {
-    max-height: 42dvh;
-  }
-
   .palette-item {
     grid-template-columns: 72px 1fr;
     gap: 8px;
@@ -300,9 +322,19 @@
     padding: 10px;
   }
 
+  .palette-preview-info {
+    max-height: min(22dvh, 180px);
+    overflow-y: auto;
+    padding-right: 2px;
+  }
+
   .palette-actions {
     flex-wrap: wrap;
     justify-content: stretch;
+    position: sticky;
+    bottom: 0;
+    padding-top: 8px;
+    background: linear-gradient(180deg, rgba(12, 32, 54, 0.2), rgba(12, 32, 54, 1));
   }
 
   .palette-actions button {

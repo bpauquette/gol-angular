@@ -161,7 +161,69 @@ textarea {
   color: var(--gol-text-primary) !important;
 }
 
+.gol-root .mat-mdc-button-base .mat-icon,
+.auth-dialog .mat-mdc-button-base .mat-icon,
+.palette-dialog .mat-mdc-button-base .mat-icon,
+.gol-dialog .mat-mdc-button-base .mat-icon,
+.gol-legal-dialog .mat-mdc-button-base .mat-icon {
+  color: currentColor !important;
+}
+
+.gol-root .mat-mdc-button-base:not(.mat-primary):not(.mat-accent):not(.mat-warn),
+.auth-dialog .mat-mdc-button-base:not(.mat-primary):not(.mat-accent):not(.mat-warn),
+.palette-dialog .mat-mdc-button-base:not(.mat-primary):not(.mat-accent):not(.mat-warn),
+.gol-dialog .mat-mdc-button-base:not(.mat-primary):not(.mat-accent):not(.mat-warn),
+.gol-legal-dialog .mat-mdc-button-base:not(.mat-primary):not(.mat-accent):not(.mat-warn) {
+  color: var(--gol-text-primary) !important;
+}
+
+.gol-root .mat-mdc-outlined-button:not(.mat-primary):not(.mat-accent):not(.mat-warn),
+.auth-dialog .mat-mdc-outlined-button:not(.mat-primary):not(.mat-accent):not(.mat-warn),
+.palette-dialog .mat-mdc-outlined-button:not(.mat-primary):not(.mat-accent):not(.mat-warn),
+.gol-dialog .mat-mdc-outlined-button:not(.mat-primary):not(.mat-accent):not(.mat-warn),
+.gol-legal-dialog .mat-mdc-outlined-button:not(.mat-primary):not(.mat-accent):not(.mat-warn) {
+  border-color: var(--gol-panel-border) !important;
+}
+
+.auth-dialog .mat-mdc-card-title,
+.auth-dialog .mat-mdc-card-subtitle,
+.auth-dialog .mat-mdc-card-content,
+.auth-dialog .mat-mdc-checkbox .mdc-label,
+.auth-dialog .mat-mdc-select-min-line,
+.auth-dialog .mat-mdc-form-field-icon-suffix,
+.auth-dialog .mat-mdc-form-field-icon-prefix,
+.palette-dialog .mat-mdc-card-title,
+.palette-dialog .mat-mdc-card-subtitle,
+.palette-dialog .mat-mdc-card-content,
+.palette-dialog .mat-mdc-checkbox .mdc-label,
+.palette-dialog .mat-mdc-select-min-line,
+.palette-dialog .mat-mdc-form-field-icon-suffix,
+.palette-dialog .mat-mdc-form-field-icon-prefix,
+.gol-dialog .mat-mdc-card-title,
+.gol-dialog .mat-mdc-card-subtitle,
+.gol-dialog .mat-mdc-card-content,
+.gol-dialog .mat-mdc-checkbox .mdc-label,
+.gol-dialog .mat-mdc-select-min-line,
+.gol-dialog .mat-mdc-form-field-icon-suffix,
+.gol-dialog .mat-mdc-form-field-icon-prefix,
+.gol-legal-dialog .mat-mdc-card-title,
+.gol-legal-dialog .mat-mdc-card-subtitle,
+.gol-legal-dialog .mat-mdc-card-content,
+.gol-legal-dialog .mat-mdc-checkbox .mdc-label,
+.gol-legal-dialog .mat-mdc-select-min-line,
+.gol-legal-dialog .mat-mdc-form-field-icon-suffix,
+.gol-legal-dialog .mat-mdc-form-field-icon-prefix {
+  color: var(--gol-text-primary) !important;
+}
+
 .gol-root .mat-mdc-form-field .mdc-text-field--filled {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+.auth-dialog .mat-mdc-form-field .mdc-text-field--filled,
+.palette-dialog .mat-mdc-form-field .mdc-text-field--filled,
+.gol-dialog .mat-mdc-form-field .mdc-text-field--filled,
+.gol-legal-dialog .mat-mdc-form-field .mdc-text-field--filled {
   background: rgba(255, 255, 255, 0.08) !important;
 }
 
@@ -169,7 +231,21 @@ textarea {
   color: var(--gol-text-secondary) !important;
 }
 
+.auth-dialog .mat-mdc-form-field .mdc-floating-label,
+.palette-dialog .mat-mdc-form-field .mdc-floating-label,
+.gol-dialog .mat-mdc-form-field .mdc-floating-label,
+.gol-legal-dialog .mat-mdc-form-field .mdc-floating-label {
+  color: var(--gol-text-secondary) !important;
+}
+
 .gol-root .mat-mdc-form-field.mat-focused .mdc-floating-label {
+  color: var(--gol-engine-focus) !important;
+}
+
+.auth-dialog .mat-mdc-form-field.mat-focused .mdc-floating-label,
+.palette-dialog .mat-mdc-form-field.mat-focused .mdc-floating-label,
+.gol-dialog .mat-mdc-form-field.mat-focused .mdc-floating-label,
+.gol-legal-dialog .mat-mdc-form-field.mat-focused .mdc-floating-label {
   color: var(--gol-engine-focus) !important;
 }
 
@@ -180,12 +256,46 @@ textarea {
   caret-color: var(--gol-engine-focus) !important;
 }
 
+.auth-dialog .mat-mdc-form-field input.mat-mdc-input-element,
+.auth-dialog .mat-mdc-form-field textarea.mat-mdc-input-element,
+.auth-dialog .mat-mdc-select-value-text,
+.palette-dialog .mat-mdc-form-field input.mat-mdc-input-element,
+.palette-dialog .mat-mdc-form-field textarea.mat-mdc-input-element,
+.palette-dialog .mat-mdc-select-value-text,
+.gol-dialog .mat-mdc-form-field input.mat-mdc-input-element,
+.gol-dialog .mat-mdc-form-field textarea.mat-mdc-input-element,
+.gol-dialog .mat-mdc-select-value-text,
+.gol-legal-dialog .mat-mdc-form-field input.mat-mdc-input-element,
+.gol-legal-dialog .mat-mdc-form-field textarea.mat-mdc-input-element,
+.gol-legal-dialog .mat-mdc-select-value-text {
+  color: var(--gol-text-primary) !important;
+  caret-color: var(--gol-engine-focus) !important;
+}
+
 .gol-root .mat-mdc-form-field input.mat-mdc-input-element::placeholder,
 .gol-root .mat-mdc-form-field textarea.mat-mdc-input-element::placeholder {
   color: var(--gol-text-muted) !important;
 }
 
+.auth-dialog .mat-mdc-form-field input.mat-mdc-input-element::placeholder,
+.auth-dialog .mat-mdc-form-field textarea.mat-mdc-input-element::placeholder,
+.palette-dialog .mat-mdc-form-field input.mat-mdc-input-element::placeholder,
+.palette-dialog .mat-mdc-form-field textarea.mat-mdc-input-element::placeholder,
+.gol-dialog .mat-mdc-form-field input.mat-mdc-input-element::placeholder,
+.gol-dialog .mat-mdc-form-field textarea.mat-mdc-input-element::placeholder,
+.gol-legal-dialog .mat-mdc-form-field input.mat-mdc-input-element::placeholder,
+.gol-legal-dialog .mat-mdc-form-field textarea.mat-mdc-input-element::placeholder {
+  color: var(--gol-text-muted) !important;
+}
+
 .gol-root .mat-mdc-select-arrow {
+  color: var(--gol-text-secondary) !important;
+}
+
+.auth-dialog .mat-mdc-select-arrow,
+.palette-dialog .mat-mdc-select-arrow,
+.gol-dialog .mat-mdc-select-arrow,
+.gol-legal-dialog .mat-mdc-select-arrow {
   color: var(--gol-text-secondary) !important;
 }
 

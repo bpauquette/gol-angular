@@ -41,6 +41,8 @@ interface HashlifePreset {
   exponent: number;
 }
 
+type ClientPlatform = 'iphone' | 'android' | 'mobile' | 'desktop';
+
 interface PhotosensitivityProbeMetrics {
   elapsedMs: number;
   frameCount: number;
@@ -64,6 +66,7 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
   hashlifeSkipExponent = 7;
   hashlifePresetId: HashlifePresetId = 'balanced';
   showHashlifeAdvanced = false;
+  showHashlifePanelMobile = false;
   hashlifeAdvancedSinceRender = 0;
   hashlifeWorkerElapsedMs = 0;
   hashlifeWorkerUsed = true;
@@ -239,6 +242,8 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
 
   performanceCaps: PerformanceCaps = { maxFPS: 60, maxGPS: 30, enableFPSCap: false, enableGPSCap: false };
 
+  clientPlatform: ClientPlatform = 'desktop';
+  isPhoneClient = false;
   isIphoneMitigation = false;
   idleDimmed = false;
   canvasShiftX = 0;
@@ -315,7 +320,10 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
       })
     );
 
-    this.isIphoneMitigation = this.detectIphone();
+    this.clientPlatform = this.detectClientPlatform();
+    this.isPhoneClient = this.clientPlatform !== 'desktop';
+    this.exposeClientPlatform();
+    this.isIphoneMitigation = this.clientPlatform === 'iphone';
     if (this.isIphoneMitigation) {
       this.applyIphoneCanvasDefaults();
       this.startIphoneMitigationTimers();
@@ -530,6 +538,17 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     return this.getHashlifePresetById(this.hashlifePresetId).hint;
   }
 
+  get clientPlatformLabel() {
+    if (this.clientPlatform === 'iphone') return 'iPhone';
+    if (this.clientPlatform === 'android') return 'Android';
+    if (this.clientPlatform === 'mobile') return 'Mobile';
+    return 'Desktop';
+  }
+
+  get hideMobileDock() {
+    return this.optionsOpen || this.isModalDialogOpen();
+  }
+
   adjustHashlifeSkipExponent(delta: number) {
     const next = Math.max(0, Math.min(15, this.hashlifeSkipExponent + Math.sign(delta || 0)));
     this.onHashlifeSkipExponentChange(next);
@@ -581,7 +600,7 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
       }
     }
 
-    if (!this.isRunning && !this.adaCompliance) {
+    if (!this.isRunning) {
       this.runtime.start();
     }
 
@@ -874,7 +893,6 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
 
   private resumeIfNeeded() {
     if (!this.wasRunningBeforeGridDialog) return;
-    if (this.adaCompliance) return;
     // Use runtime state (not local subscription timing) to resume reliably.
     this.runtime.start();
     this.wasRunningBeforeGridDialog = false;
@@ -1249,7 +1267,7 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
   applySafeVisualCaps() {
     this.adaService.setAdaCompliance(true);
     this.runtime.setPhotosensitivityTesterEnabled(true);
-    this.photoTestResult = 'ADA mode enabled. Run is disabled and single-step control is active.';
+    this.photoTestResult = 'ADA mode enabled. Autoplay remains available with conservative safety caps.';
   }
 
   openScriptPlayground() {
@@ -1734,7 +1752,7 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
       guidance.push('Enable FPS/GPS caps at 3 or lower for safer playback limits.');
     }
     if (this.adaCompliance) {
-      guidance.push('ADA mode active: Run disabled, users control pace with Step.');
+      guidance.push('ADA mode active: autoplay is limited by conservative FPS/GPS safety caps.');
     }
     if (!guidance.length) {
       guidance.push('Continue manual review with real patterns and user testing.');
@@ -1835,9 +1853,42 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
       || this.showFirstLoadWarning;
   }
 
-  private detectIphone() {
-    const ua = navigator.userAgent || '';
-    return /iPhone|iPod/i.test(ua);
+  private detectClientPlatform(): ClientPlatform {
+    if (typeof navigator === 'undefined') return 'desktop';
+    const ua = String(navigator.userAgent || '').toLowerCase();
+    const touchPoints = Number(navigator.maxTouchPoints || 0);
+    const coarsePointer = typeof window !== 'undefined'
+      && typeof window.matchMedia === 'function'
+      && (window.matchMedia('(pointer: coarse)').matches || window.matchMedia('(hover: none)').matches);
+    const narrowViewport = typeof window !== 'undefined'
+      && Math.min(Number(window.innerWidth || 0), Number(window.innerHeight || 0)) <= 1024;
+
+    if (/\biphone\b|\bipod\b/.test(ua)) {
+      return 'iphone';
+    }
+    if (/\bandroid\b/.test(ua)) {
+      return 'android';
+    }
+    // iPadOS may report as Macintosh while still being touch-driven.
+    if ((/\bmacintosh\b/.test(ua) && touchPoints > 1) || /\bmobile\b|\bwindows phone\b/.test(ua)) {
+      return 'mobile';
+    }
+    if (touchPoints > 1 && coarsePointer && narrowViewport) {
+      return 'mobile';
+    }
+    return 'desktop';
+  }
+
+  private exposeClientPlatform() {
+    if (typeof document !== 'undefined') {
+      document.documentElement.setAttribute('data-gol-platform', this.clientPlatform);
+      if (document.body) {
+        document.body.setAttribute('data-gol-platform', this.clientPlatform);
+      }
+    }
+    if (typeof window !== 'undefined') {
+      (window as Window & { __golClientPlatform?: string }).__golClientPlatform = this.clientPlatform;
+    }
   }
 
   private updateViewportMode() {

@@ -1,4 +1,9 @@
-<div class="gol-root" [class.ios-mitigated]="isIphoneMitigation">
+<div
+  class="gol-root"
+  [class.ios-mitigated]="isIphoneMitigation"
+  [class.phone-controls]="isPhoneClient"
+  [attr.data-client-platform]="clientPlatform"
+>
   <mat-toolbar class="gol-topbar" color="primary">
     <div class="gol-left">
       <button mat-stroked-button class="gol-toolbar-btn gol-toolbar-btn-secondary" (click)="openLoadDialog()">
@@ -25,7 +30,6 @@
         <button
           mat-icon-button
           (click)="toggleRun()"
-          [disabled]="adaCompliance"
           matTooltip="Start/Pause"
           aria-label="Start or pause simulation"
         >
@@ -60,12 +64,18 @@
     </div>
   </mat-toolbar>
 
-  <div class="gol-engine-note" *ngIf="engineMode === 'hashlife'">
+  <div class="gol-hashlife-mobile-toggle" *ngIf="isPhoneClient && engineMode === 'hashlife'">
+    <button mat-stroked-button type="button" (click)="showHashlifePanelMobile = !showHashlifePanelMobile">
+      {{ showHashlifePanelMobile ? 'Hide HashLife Controls' : 'Show HashLife Controls' }}
+    </button>
+  </div>
+
+  <div class="gol-engine-note" *ngIf="engineMode === 'hashlife' && (!isPhoneClient || showHashlifePanelMobile)">
     HashLife strength: huge generation jumps and fast milestone exploration. HashLife weakness: less intuitive for frame-by-frame visual edits.
     Switch to Normal mode when you need precise step-level control.
   </div>
 
-  <div class="gol-hashlife-observatory" *ngIf="engineMode === 'hashlife'">
+  <div class="gol-hashlife-observatory" *ngIf="engineMode === 'hashlife' && (!isPhoneClient || showHashlifePanelMobile)">
     <div class="gol-hashlife-simple-controls">
       <mat-form-field appearance="outline" class="gol-hashlife-preset-field">
         <mat-label>Speed Profile</mat-label>
@@ -272,6 +282,114 @@
       </button>
     </ng-template>
   </mat-menu>
+
+  <mat-menu #mobileToolMenu="matMenu">
+    <button mat-menu-item (click)="setTool('toggle')">
+      <mat-icon>mouse</mat-icon>
+      <span>Select/Toggle</span>
+    </button>
+    <button mat-menu-item (click)="setTool('draw')">
+      <mat-icon>edit</mat-icon>
+      <span>Draw</span>
+    </button>
+    <button mat-menu-item (click)="setTool('erase')">
+      <mat-icon>auto_fix_off</mat-icon>
+      <span>Erase</span>
+    </button>
+    <button mat-menu-item (click)="setTool('line')">
+      <mat-icon>show_chart</mat-icon>
+      <span>Line</span>
+    </button>
+    <button mat-menu-item (click)="setTool('rect')">
+      <mat-icon>crop_square</mat-icon>
+      <span>Rectangle</span>
+    </button>
+    <button mat-menu-item (click)="setTool('square')">
+      <mat-icon>square</mat-icon>
+      <span>Square</span>
+    </button>
+    <button mat-menu-item (click)="setTool('circle')">
+      <mat-icon>circle</mat-icon>
+      <span>Circle</span>
+    </button>
+    <button mat-menu-item (click)="setTool('oval')">
+      <mat-icon>panorama_fish_eye</mat-icon>
+      <span>Oval</span>
+    </button>
+    <button mat-menu-item (click)="setTool('randomRect')">
+      <mat-icon>scatter_plot</mat-icon>
+      <span>Random Fill</span>
+    </button>
+    <button mat-menu-item (click)="setTool('capture')">
+      <mat-icon>photo_camera</mat-icon>
+      <span>Capture</span>
+    </button>
+    <button mat-menu-item (click)="setTool('shapes'); openShapePalette()">
+      <mat-icon>category</mat-icon>
+      <span>Shapes</span>
+    </button>
+  </mat-menu>
+
+  <mat-menu #mobileQuickMenu="matMenu">
+    <button mat-menu-item (click)="openLoadDialog()">
+      <mat-icon>folder_open</mat-icon>
+      <span>Load</span>
+    </button>
+    <button mat-menu-item (click)="openSaveDialog()">
+      <mat-icon>save</mat-icon>
+      <span>Save</span>
+    </button>
+    <button mat-menu-item (click)="openOptions()">
+      <mat-icon>settings</mat-icon>
+      <span>Options</span>
+    </button>
+    <button mat-menu-item (click)="openStatisticsDialog()">
+      <mat-icon>bar_chart</mat-icon>
+      <span>Chart</span>
+    </button>
+    <button mat-menu-item (click)="openScriptPlayground()">
+      <mat-icon>code</mat-icon>
+      <span>Script Playground</span>
+    </button>
+    <button mat-menu-item (click)="openImportShapeDialog()">
+      <mat-icon>cloud_download</mat-icon>
+      <span>Import Shape</span>
+    </button>
+    <button mat-menu-item [matMenuTriggerFor]="userMenu">
+      <mat-icon>{{ isLoggedIn ? 'lock' : 'person' }}</mat-icon>
+      <span>{{ isLoggedIn ? 'Account' : 'Login / Register' }}</span>
+    </button>
+    <button mat-menu-item (click)="openHelpDialog()">
+      <mat-icon>help</mat-icon>
+      <span>Help</span>
+    </button>
+  </mat-menu>
+
+  <div class="gol-mobile-dock" *ngIf="isPhoneClient && !hideMobileDock" role="toolbar" aria-label="Mobile simulation controls">
+    <button
+      mat-icon-button
+      (click)="toggleRun()"
+      [matTooltip]="isRunning ? 'Pause' : 'Run'"
+      [attr.aria-label]="isRunning ? 'Pause simulation' : 'Run simulation'"
+    >
+      <mat-icon>{{ isRunning ? 'pause' : 'play_arrow' }}</mat-icon>
+    </button>
+    <button mat-icon-button (click)="step()" matTooltip="Step" aria-label="Step simulation once">
+      <mat-icon>skip_next</mat-icon>
+    </button>
+    <button mat-icon-button (click)="clear()" matTooltip="Clear" aria-label="Clear grid">
+      <mat-icon>delete_sweep</mat-icon>
+    </button>
+    <button mat-icon-button [matMenuTriggerFor]="mobileToolMenu" matTooltip="Tools" aria-label="Open tools">
+      <mat-icon>construction</mat-icon>
+    </button>
+    <button mat-icon-button (click)="toggleOptions()" matTooltip="Options" aria-label="Open options panel">
+      <mat-icon>tune</mat-icon>
+    </button>
+    <button mat-icon-button [matMenuTriggerFor]="mobileQuickMenu" matTooltip="More actions" aria-label="Open more actions">
+      <mat-icon>more_horiz</mat-icon>
+    </button>
+  </div>
 
   <div class="gol-toolstrip">
     <button mat-mini-fab [class.active]="selectedTool === 'toggle'" color="primary" matTooltip="Select/Toggle" (click)="setTool('toggle')" aria-label="Select or toggle tool"><mat-icon>mouse</mat-icon></button>
@@ -827,8 +945,8 @@
         </div>
       </div>
 
-      <div class="gol-statusbar">
-      <div class="gol-status-left">
+      <div class="gol-statusbar" [class.gol-statusbar-mobile]="isPhoneClient">
+      <div class="gol-status-left" *ngIf="!isPhoneClient">
         <span class="gol-status-coords">{{ cursorCell.x }}, {{ cursorCell.y }}</span>
         <ng-container *ngIf="statusShape as shape">
           <span class="gol-status-divider">|</span>
@@ -841,12 +959,16 @@
           </div>
         </ng-container>
       </div>
+      <div class="gol-status-mobile-summary" *ngIf="isPhoneClient">
+        <span class="gol-status-mobile-chip">G{{ generation }}</span>
+        <span class="gol-status-mobile-chip">{{ liveCells.length }} cells</span>
+      </div>
         <div class="gol-status-center">
           <button mat-icon-button (click)="zoomOut()" matTooltip="Zoom out" aria-label="Zoom out"><mat-icon>remove</mat-icon></button>
           <span class="gol-zoom-label">{{ cellSize }}x</span>
           <button mat-icon-button (click)="zoomIn()" matTooltip="Zoom in" aria-label="Zoom in"><mat-icon>add</mat-icon></button>
         </div>
-        <div class="gol-status-right">
+        <div class="gol-status-right" *ngIf="!isPhoneClient">
           <app-population-mini-panel
             [history]="popHistory"
             [current]="liveCells.length"
@@ -854,6 +976,8 @@
             [miniWindow]="maxChartGenerations"
             [chartWindow]="maxChartGenerations"
           ></app-population-mini-panel>
+          <span class="gol-status-divider">|</span>
+          <span>Platform: {{ clientPlatformLabel }}</span>
           <span class="gol-status-divider">|</span>
           <span>Generation: {{ generation }}</span>
         </div>
