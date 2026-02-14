@@ -1,6 +1,9 @@
 import { GameModelService } from '../model/game-model.service';
 import { ShapeImportService } from './shape-import.service';
-import { ScriptPlaygroundService } from './script-playground.service';
+import {
+  ScriptPlaygroundService,
+  UntilSteadyHeuristicDetector
+} from './script-playground.service';
 import { AdaComplianceService } from './ada-compliance.service';
 
 describe('ScriptPlaygroundService', () => {
@@ -149,5 +152,144 @@ describe('ScriptPlaygroundService', () => {
       'CLEAR',
       'STEP 10'
     ].join('\n'), createContext({ signal: abortController.signal }))).toBeRejectedWithError(/canceled/i);
+  });
+
+  it('annotates UNTIL_STEADY metadata and reports inconclusive with low maxSteps', async () => {
+    const result = await service.runScript([
+      'CLEAR',
+      'PENDOWN',
+      'GOTO 1 0',
+      'RECT 1 1',
+      'GOTO 2 1',
+      'RECT 1 1',
+      'GOTO 0 2',
+      'RECT 1 1',
+      'GOTO 1 2',
+      'RECT 1 1',
+      'GOTO 2 2',
+      'RECT 1 1',
+      'UNTIL_STEADY probe 3',
+      'PRINT probe',
+      'PRINT probe_mode',
+      'PRINT probe_period',
+      'PRINT probe_confidence'
+    ].join('\n'), createContext());
+
+    expect(result.output).toContain('-1');
+    expect(result.output).toContain('inconclusive');
+  });
+});
+
+describe('UntilSteadyHeuristicDetector', () => {
+  function toCellSet(cells: Array<{ x: number; y: number }>) {
+    return new Set(cells.map((cell) => `${cell.x},${cell.y}`));
+  }
+
+  it('detects still-life repeats', () => {
+    const detector = new UntilSteadyHeuristicDetector();
+    const block = toCellSet([
+      { x: 0, y: 0 },
+      { x: 1, y: 0 },
+      { x: 0, y: 1 },
+      { x: 1, y: 1 }
+    ]);
+
+    let detection: ReturnType<UntilSteadyHeuristicDetector['observe']> = null;
+    for (let step = 0; step <= 6; step += 1) {
+      detection = detector.observe(step, block);
+      if (detection) break;
+    }
+
+    expect(detection).not.toBeNull();
+    expect(detection?.mode).toBe('still-life');
+    expect(detection?.period).toBe(1);
+  });
+
+  it('detects oscillator repeats', () => {
+    const detector = new UntilSteadyHeuristicDetector();
+    const horizontal = toCellSet([
+      { x: 0, y: 0 },
+      { x: 1, y: 0 },
+      { x: 2, y: 0 }
+    ]);
+    const vertical = toCellSet([
+      { x: 1, y: -1 },
+      { x: 1, y: 0 },
+      { x: 1, y: 1 }
+    ]);
+
+    let detection: ReturnType<UntilSteadyHeuristicDetector['observe']> = null;
+    for (let step = 0; step <= 12; step += 1) {
+      const snapshot = step % 2 === 0 ? horizontal : vertical;
+      detection = detector.observe(step, snapshot);
+      if (detection) break;
+    }
+
+    expect(detection).not.toBeNull();
+    expect(detection?.mode).toBe('oscillator');
+    expect(detection?.period).toBe(2);
+  });
+
+  it('detects spaceship translation repeats', () => {
+    const model = new GameModelService(new AdaComplianceService());
+    model.setLiveCells([
+      { x: 1, y: 0 },
+      { x: 2, y: 1 },
+      { x: 0, y: 2 },
+      { x: 1, y: 2 },
+      { x: 2, y: 2 }
+    ], 0);
+
+    const detector = new UntilSteadyHeuristicDetector();
+    let detection: ReturnType<UntilSteadyHeuristicDetector['observe']> = null;
+
+    for (let step = 0; step <= 24; step += 1) {
+      const snapshot = toCellSet(model.getLiveCells());
+      detection = detector.observe(step, snapshot);
+      if (detection) break;
+      model.step(1);
+    }
+
+    expect(detection).not.toBeNull();
+    expect(detection?.mode).toBe('spaceship');
+    expect(detection?.period).toBe(4);
+    expect(detection?.dx).toBe(1);
+    expect(detection?.dy).toBe(1);
+  });
+
+  it('detects periodic-with-emission growth patterns', () => {
+    const detector = new UntilSteadyHeuristicDetector({
+      confirmationsNeeded: 2,
+      emissionMinHistory: 10,
+      emissionMaxPeriod: 8,
+      minGrowthPerPeriod: 1,
+      minAreaGrowthPerPeriod: 1
+    });
+
+    let detection: ReturnType<UntilSteadyHeuristicDetector['observe']> = null;
+    for (let step = 0; step <= 80; step += 1) {
+      const cells = new Set<string>();
+      if (step % 2 === 0) {
+        cells.add('0,0');
+        cells.add('1,0');
+        cells.add('2,0');
+      } else {
+        cells.add('1,-1');
+        cells.add('1,0');
+        cells.add('1,1');
+      }
+
+      const tailLength = Math.floor(step / 2) + 1;
+      for (let i = 0; i < tailLength; i += 1) {
+        cells.add(`${20 + i},0`);
+      }
+
+      detection = detector.observe(step, cells);
+      if (detection) break;
+    }
+
+    expect(detection).not.toBeNull();
+    expect(detection?.mode).toBe('periodic-with-emission');
+    expect(detection?.period).toBe(2);
   });
 });

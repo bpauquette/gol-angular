@@ -187,6 +187,7 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
   private reopenPhotosensitivityDialogAfterProbe = false;
 
   showScriptDialog = false;
+  showScriptLogDialog = false;
   scriptName = 'Basic Drawing';
   scriptCode = [
     'PENDOWN',
@@ -194,7 +195,7 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     'GOTO 10 5',
     'RECT 2 2'
   ].join('\n');
-  scriptActiveTab: 'editor' | 'saved' | 'debug' | 'reference' = 'editor';
+  scriptActiveTab: 'editor' | 'saved' | 'reference' = 'editor';
   scriptOutput = '';
   scriptError: string | null = null;
   scriptIsPublic = false;
@@ -1303,7 +1304,15 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     this.scriptError = null;
   }
 
-  setScriptTab(tab: 'editor' | 'saved' | 'debug' | 'reference') {
+  openScriptLogDialog() {
+    this.showScriptLogDialog = true;
+  }
+
+  closeScriptLogDialog() {
+    this.showScriptLogDialog = false;
+  }
+
+  setScriptTab(tab: 'editor' | 'saved' | 'reference') {
     this.scriptActiveTab = tab;
   }
 
@@ -1886,6 +1895,10 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
       this.closeStatisticsDialog();
       return true;
     }
+    if (this.showScriptLogDialog) {
+      this.closeScriptLogDialog();
+      return true;
+    }
     if (this.showScriptDialog) {
       this.closeScriptPlayground();
       return true;
@@ -1936,6 +1949,7 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
       || this.showHelpDialog
       || this.showAboutDialog
       || this.showPhotosensitivityDialog
+      || this.showScriptLogDialog
       || this.showScriptDialog
       || this.showStatisticsDialog
       || this.showAccountDialog

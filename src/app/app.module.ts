@@ -32,6 +32,7 @@ import { AuthDialogComponent } from './auth/auth-dialog.component';
 import { HTTP_INTERCEPTORS } from '@angular/common/http';
 import { AuthInterceptor } from './services/auth.interceptor';
 import { PopulationMiniPanelComponent } from './game-of-life/population-mini-panel.component';
+import { ScriptLogDialogComponent } from './game-of-life/script-log-dialog.component';
 
 @NgModule({
   declarations: [
@@ -41,6 +42,7 @@ import { PopulationMiniPanelComponent } from './game-of-life/population-mini-pan
     ShapePreviewComponent,
     ShapePaletteDialogComponent,
     PopulationMiniPanelComponent,
+    ScriptLogDialogComponent,
     AuthDialogComponent,
     OptionsPanelComponent,
     RunControlGroupComponent,

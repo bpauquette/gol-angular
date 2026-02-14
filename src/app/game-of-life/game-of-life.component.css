@@ -1161,6 +1161,16 @@
   line-height: 1.4;
 }
 
+.gol-script-runtime-actions {
+  margin-top: 4px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.gol-script-runtime-actions button {
+  min-width: 0;
+}
+
 .gol-script-snippet-row {
   display: flex;
   flex-wrap: wrap;

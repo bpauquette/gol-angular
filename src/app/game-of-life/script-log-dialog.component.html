@@ -1,0 +1,26 @@
+<div class="gol-dialog-backdrop" (click)="onBackdropClick()">
+  <div
+    class="gol-dialog gol-script-log-dialog"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Script Debug Log"
+    tabindex="-1"
+    (click)="onDialogClick($event)"
+  >
+    <h2>Script Debug Log</h2>
+    <div class="gol-dialog-body">
+      <div class="gol-script-console-head">
+        <span>{{ running ? 'Script running' : 'Script idle' }}</span>
+        <span>{{ logLines.length }} lines</span>
+      </div>
+      <div class="gol-script-console-empty" *ngIf="logLines.length === 0">No debug messages yet.</div>
+      <div class="gol-script-console" *ngIf="logLines.length > 0">
+        <code *ngFor="let line of logLines">{{ line }}</code>
+      </div>
+    </div>
+    <div class="gol-dialog-actions">
+      <button mat-button type="button" (click)="clear.emit()" [disabled]="running || logLines.length === 0">Clear</button>
+      <button mat-raised-button color="primary" type="button" (click)="close.emit()">Close</button>
+    </div>
+  </div>
+</div>

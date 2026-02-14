@@ -458,6 +458,7 @@
           </div>
           <div class="gol-script-hud-actions">
             <button mat-stroked-button color="primary" type="button" (click)="openScriptPlayground()">Open Panel</button>
+            <button mat-stroked-button type="button" (click)="openScriptLogDialog()">View Logs</button>
             <button mat-stroked-button color="warn" type="button" (click)="cancelScriptRun()" [disabled]="scriptCancelRequested">Stop</button>
           </div>
         </div>
@@ -779,12 +780,6 @@
         <button
           type="button"
           class="gol-script-tab"
-          [class.active]="scriptActiveTab === 'debug'"
-          (click)="setScriptTab('debug')"
-        >Debug Log</button>
-        <button
-          type="button"
-          class="gol-script-tab"
           [class.active]="scriptActiveTab === 'reference'"
           (click)="setScriptTab('reference')"
         >Language Reference</button>
@@ -806,6 +801,9 @@
           <span>{{ scriptElapsedMs | number }} ms</span>
         </div>
         <div class="gol-script-runtime-action" *ngIf="scriptProgressAction">{{ scriptProgressAction }}</div>
+        <div class="gol-script-runtime-actions">
+          <button mat-button type="button" (click)="openScriptLogDialog()">View Logs ({{ scriptDebugLog.length }})</button>
+        </div>
       </div>
 
       <div class="gol-script-panel" *ngIf="scriptActiveTab === 'editor'">
@@ -861,17 +859,6 @@
         </div>
       </div>
 
-      <div class="gol-script-panel" *ngIf="scriptActiveTab === 'debug'">
-        <div class="gol-script-console">
-          <div class="gol-script-console-head">
-            <span>Debug Log</span>
-            <button mat-button type="button" (click)="clearScriptConsole()" [disabled]="scriptRunning || scriptDebugLog.length === 0">Clear</button>
-          </div>
-          <div class="gol-script-console-empty" *ngIf="scriptDebugLog.length === 0">No debug messages yet.</div>
-          <code *ngFor="let line of scriptDebugLog">{{ line }}</code>
-        </div>
-      </div>
-
       <div class="gol-script-panel" *ngIf="scriptActiveTab === 'reference'">
         <div class="gol-script-reference">
           <code *ngFor="let line of scriptApiReference">{{ line }}</code>
@@ -880,6 +867,7 @@
     </div>
     <div class="gol-dialog-actions">
       <button mat-button (click)="closeScriptPlayground()">Close</button>
+      <button mat-stroked-button (click)="openScriptLogDialog()">View Logs</button>
       <button mat-stroked-button color="primary" (click)="saveCurrentScript()" [disabled]="scriptRunning">Save Script</button>
       <button mat-stroked-button color="warn" (click)="cancelScriptRun()" [disabled]="!scriptRunning">Cancel Run</button>
       <button mat-raised-button color="primary" (click)="runScript()" [disabled]="scriptRunning">
@@ -888,6 +876,13 @@
     </div>
   </div>
 </div>
+<app-script-log-dialog
+  *ngIf="showScriptLogDialog"
+  [logLines]="scriptDebugLog"
+  [running]="scriptRunning"
+  (close)="closeScriptLogDialog()"
+  (clear)="clearScriptConsole()"
+></app-script-log-dialog>
 <div class="gol-dialog-backdrop" *ngIf="showStatisticsDialog">
         <div class="gol-dialog" role="dialog" aria-modal="true" aria-label="Simulation Statistics" tabindex="-1">
           <h2>Simulation Statistics</h2>

@@ -125,3 +125,49 @@ References used for this contract:
 - SICP JavaScript adaptation, metacircular evaluator structure: https://sicp.sourceacademy.org/chapters/4.1.html
 - Stanford CS242 operational semantics notes: https://stanford-cs242.github.io/f19/lectures/01-1-operational-semantics.html
 - Crafting Interpreters (tree-walk execution model): https://craftinginterpreters.com/a-tree-walk-interpreter.html
+
+## Heuristic Steady-State Detection (Research-Backed Requirements)
+
+This section records requirements derived from published algorithm notes and Life-specific references.
+It applies to `UNTIL_STEADY` detection in the script runtime.
+
+### Required Classification Modes
+
+- `still-life`: exact repeat with period 1.
+- `oscillator`: exact repeat with period > 1.
+- `spaceship`: normalized repeat with translation vector `(dx, dy)` and period > 0.
+- `periodic-with-emission`: periodic growth signature (population/area) without global exact repeat.
+- `inconclusive`: no confident result within configured budget.
+
+### Detection Rules
+
+- Use exact-state cycle detection for still-life/oscillator detection.
+- Use translation-invariant signatures for spaceship detection.
+- Require confidence confirmations before declaring a mode (do not trust one-off repeats).
+- Track period and displacement for mode metadata.
+- Keep a bounded history window to avoid unbounded memory growth.
+- Treat emitter/gun-like behavior as distinct from globally steady state.
+- When no confident classification is found in budget, return `inconclusive` instead of mislabeling.
+
+### Why This Matters
+
+- Life includes known oscillators, spaceships, and guns, so “steady” cannot mean only “period 1”.
+- HashLife is very strong on regular patterns but can degrade on chaotic random soups; detection logic must be robust in both regimes.
+- There is no practical fixed small period bound to assume globally; detector behavior must be budget-driven.
+
+### Research and References
+
+- LifeWiki (definitions and canonical classes):
+  - Still lifes: https://conwaylife.com/wiki/Still_life
+  - Oscillators: https://conwaylife.com/wiki/Oscillator
+  - Spaceships: https://conwaylife.com/wiki/Spaceship
+  - Guns/emitters: https://conwaylife.com/wiki/Gun
+  - Glider periodic translation (period 4, displacement): https://conwaylife.com/wiki/Glider
+- Golly HashLife algorithm notes (performance strengths/weaknesses):
+  - https://golly.sourceforge.io/Help/Algorithms/HashLife.html
+- Cycle-detection algorithms:
+  - Brent, “An Improved Monte Carlo Factorization Algorithm” (contains the classic cycle-detection method):
+    https://maths-people.anu.edu.au/~brent/pd/rpb051i.pdf
+- Existence of arbitrarily large periods in Life:
+  - Brown et al., “Omniperiodicity in the B36/S23 Life-like cellular automaton rule”:
+    https://arxiv.org/abs/2312.02799

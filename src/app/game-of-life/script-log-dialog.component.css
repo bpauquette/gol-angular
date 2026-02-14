@@ -1,0 +1,108 @@
+.gol-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.62);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2100;
+  padding: 1rem;
+}
+
+.gol-dialog {
+  background: #10213d;
+  color: #f3f7ff;
+  border: 1px solid rgba(139, 176, 255, 0.45);
+  border-radius: 16px;
+  width: min(980px, 96vw);
+  max-height: min(88vh, 900px);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.52);
+}
+
+.gol-dialog h2 {
+  margin: 0;
+  padding: 1rem 1.25rem 0.5rem;
+  font-size: 1.1rem;
+}
+
+.gol-dialog-body {
+  padding: 0.75rem 1.25rem 1rem;
+  overflow: auto;
+}
+
+.gol-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  padding: 0.85rem 1.25rem 1.1rem;
+  border-top: 1px solid rgba(139, 176, 255, 0.25);
+}
+
+.gol-script-log-dialog {
+  min-height: min(440px, 75vh);
+}
+
+.gol-script-console-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.65rem;
+  font-size: 0.9rem;
+  color: #c9dcff;
+}
+
+.gol-script-console {
+  border-radius: 12px;
+  border: 1px solid rgba(131, 168, 245, 0.35);
+  background: rgba(0, 0, 0, 0.32);
+  padding: 0.7rem 0.8rem;
+  max-height: min(58vh, 680px);
+  overflow: auto;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.gol-script-console code {
+  display: block;
+  color: #cfe0ff;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.gol-script-console-empty {
+  border-radius: 10px;
+  border: 1px dashed rgba(142, 177, 245, 0.45);
+  background: rgba(12, 27, 58, 0.45);
+  color: #bad2ff;
+  padding: 0.9rem;
+  text-align: center;
+}
+
+@media (max-width: 760px) {
+  .gol-dialog {
+    width: min(100vw, 100%);
+    max-height: 94vh;
+    border-radius: 12px;
+  }
+
+  .gol-dialog h2 {
+    padding: 0.85rem 0.95rem 0.45rem;
+  }
+
+  .gol-dialog-body {
+    padding: 0.55rem 0.95rem 0.8rem;
+  }
+
+  .gol-dialog-actions {
+    padding: 0.7rem 0.95rem 0.9rem;
+  }
+
+  .gol-script-console {
+    max-height: 64vh;
+  }
+}
