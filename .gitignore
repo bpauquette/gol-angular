@@ -22,3 +22,6 @@ pnpm-debug.log*
 # OS/editor files
 .DS_Store
 Thumbs.db
+
+# Scanner workspace
+.scannerwork/
