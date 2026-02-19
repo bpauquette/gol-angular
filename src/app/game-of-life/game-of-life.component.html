@@ -42,6 +42,9 @@
         <button mat-icon-button (click)="clear()" matTooltip="Clear" aria-label="Clear grid">
           <mat-icon>delete_sweep</mat-icon>
         </button>
+        <button mat-icon-button (click)="resetToGenerationZero()" matTooltip="Reset to generation 0" aria-label="Reset to generation zero pattern">
+          <mat-icon>restart_alt</mat-icon>
+        </button>
       </div>
     </div>
 
@@ -380,6 +383,9 @@
     </button>
     <button mat-icon-button (click)="clear()" matTooltip="Clear" aria-label="Clear grid">
       <mat-icon>delete_sweep</mat-icon>
+    </button>
+    <button mat-icon-button (click)="resetToGenerationZero()" matTooltip="Reset to generation 0" aria-label="Reset to generation zero pattern">
+      <mat-icon>restart_alt</mat-icon>
     </button>
     <button mat-icon-button [matMenuTriggerFor]="mobileToolMenu" matTooltip="Tools" aria-label="Open tools">
       <mat-icon>construction</mat-icon>

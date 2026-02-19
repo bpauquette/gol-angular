@@ -308,6 +308,7 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
   private subscriptions = new Subscription();
   private shapeHydrationSub?: Subscription;
   private readonly recentsStorageKey = 'gol.recentShapes.v1';
+  private readonly generationZeroStorageKey = 'gol.generationZeroPattern.v1';
   private removeShortcutListeners: (() => void) | null = null;
   private scriptAbortController: AbortController | null = null;
 
@@ -363,10 +364,12 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     this.subscriptions.add(this.runtime.liveCells$.subscribe(cells => {
       this.liveCells = cells;
       this.refreshOverlay();
+      this.persistGenerationZeroPatternIfNeeded();
     }));
     this.subscriptions.add(this.runtime.generation$.subscribe(gen => {
       this.generation = gen;
       this.updateHashlifeLeapProgress();
+      this.persistGenerationZeroPatternIfNeeded();
     }));
     this.subscriptions.add(this.runtime.engineMode$.subscribe(mode => this.engineMode = mode));
     this.subscriptions.add(this.runtime.generationBatchSize$.subscribe(size => this.generationBatchSize = size));
@@ -703,6 +706,21 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     if (this.scriptRunning) return;
     this.cancelHashlifeLeap(false);
     this.runtime.clear();
+  }
+
+  resetToGenerationZero() {
+    if (this.scriptRunning) return;
+    this.cancelHashlifeLeap(false);
+    this.runtime.pause();
+
+    let cells = this.readGenerationZeroPattern();
+    if (!cells.length && this.generation === 0) {
+      cells = this.normalizePatternCells(this.liveCells);
+    }
+    this.model.setLiveCells(cells, 0);
+    this.runtime.syncNow(true);
+    this.persistGenerationZeroPatternIfNeeded();
+    this.showCheckpointNotice('Reset to generation 0 pattern.', true);
   }
 
   refreshOverlay() {
@@ -2251,6 +2269,50 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     const centerX = Math.floor((minX + maxX) / 2);
     const centerY = Math.floor((minY + maxY) / 2);
     return cells.map(cell => [anchorX + (cell.x - centerX), anchorY + (cell.y - centerY)] as [number, number]);
+  }
+
+  private normalizePatternCells(cells: Array<{ x: number; y: number } | null | undefined>) {
+    const normalized: { x: number; y: number }[] = [];
+    const seen = new Set<string>();
+    for (const cell of cells || []) {
+      const x = Math.floor(Number(cell?.x));
+      const y = Math.floor(Number(cell?.y));
+      if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+      const key = `${x},${y}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      normalized.push({ x, y });
+    }
+    return normalized;
+  }
+
+  private persistGenerationZeroPatternIfNeeded() {
+    if (this.generation !== 0) return;
+    try {
+      const cells = this.normalizePatternCells(this.liveCells);
+      localStorage.setItem(
+        this.generationZeroStorageKey,
+        JSON.stringify({
+          savedAt: new Date().toISOString(),
+          cells
+        })
+      );
+    } catch (error) {
+      console.error('[GameOfLife] Failed to persist generation-zero pattern.', error);
+    }
+  }
+
+  private readGenerationZeroPattern() {
+    try {
+      const raw = localStorage.getItem(this.generationZeroStorageKey);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed?.cells)) return [];
+      return this.normalizePatternCells(parsed.cells);
+    } catch (error) {
+      console.error('[GameOfLife] Failed to read generation-zero pattern from storage.', error);
+      return [];
+    }
   }
 
   private loadRecentShapes() {
