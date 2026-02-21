@@ -466,6 +466,27 @@ export class GameRuntimeService implements OnDestroy {
     this.showFirstLoadWarningSubject.next(false);
   }
 
+  replayFirstLoadWarning() {
+    this.writeBoolToStorage(ADA_ONBOARDING_SEEN_STORAGE_KEY, false);
+    this.showFirstLoadWarningSubject.next(true);
+  }
+
+  resetRuntimePreferencesToDefaults() {
+    this.detectStablePopulationSubject.next(false);
+    this.maxChartGenerationsSubject.next(5000);
+    this.popWindowSizeSubject.next(50);
+    this.popToleranceSubject.next(0);
+    this.preferredCaps = { ...DEFAULT_CAPS };
+
+    if (this.adaComplianceSubject.value) {
+      this.applyAdaCaps();
+      return;
+    }
+
+    this.performanceCapsSubject.next({ ...DEFAULT_CAPS });
+    this.restartLoopIfRunning();
+  }
+
   setOptionsOpen(open: boolean) {
     this.optionsOpenSubject.next(!!open);
   }
@@ -494,6 +515,10 @@ export class GameRuntimeService implements OnDestroy {
   }
 
   setMaxFPS(value: number) {
+    if (this.adaComplianceSubject.value) {
+      this.applyAdaCaps();
+      return;
+    }
     const clamped = Math.max(1, Math.min(120, Number(value) || DEFAULT_CAPS.maxFPS));
     const caps = { ...this.performanceCapsSubject.value, maxFPS: clamped };
     this.performanceCapsSubject.next(caps);
@@ -502,6 +527,10 @@ export class GameRuntimeService implements OnDestroy {
   }
 
   setMaxGPS(value: number) {
+    if (this.adaComplianceSubject.value) {
+      this.applyAdaCaps();
+      return;
+    }
     const clamped = Math.max(1, Math.min(60, Number(value) || DEFAULT_CAPS.maxGPS));
     const caps = { ...this.performanceCapsSubject.value, maxGPS: clamped };
     this.performanceCapsSubject.next(caps);
@@ -510,6 +539,10 @@ export class GameRuntimeService implements OnDestroy {
   }
 
   setEnableFPSCap(enabled: boolean) {
+    if (this.adaComplianceSubject.value) {
+      this.applyAdaCaps();
+      return;
+    }
     const caps = { ...this.performanceCapsSubject.value, enableFPSCap: !!enabled };
     this.performanceCapsSubject.next(caps);
     this.preferredCaps = { ...this.preferredCaps, enableFPSCap: !!enabled };
@@ -517,6 +550,10 @@ export class GameRuntimeService implements OnDestroy {
   }
 
   setEnableGPSCap(enabled: boolean) {
+    if (this.adaComplianceSubject.value) {
+      this.applyAdaCaps();
+      return;
+    }
     const caps = { ...this.performanceCapsSubject.value, enableGPSCap: !!enabled };
     this.performanceCapsSubject.next(caps);
     this.preferredCaps = { ...this.preferredCaps, enableGPSCap: !!enabled };

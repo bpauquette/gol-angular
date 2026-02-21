@@ -44,51 +44,11 @@ mat-checkbox {
   font-weight: 700;
 }
 
-.gol-legal-image {
-  display: block;
-  width: 100%;
-  max-width: 260px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  margin-top: 8px;
-}
-
-.gol-legal-dialog-backdrop {
-  position: fixed;
-  inset: 0;
+.gol-privacy-actions {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.62);
-  z-index: 1400;
-  padding: 16px;
-}
-
-.gol-legal-dialog {
-  width: min(560px, 100%);
-  background: var(--gol-panel-bg-strong);
-  border: 1px solid var(--gol-panel-border);
-  border-radius: 10px;
-  padding: 16px;
-  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.45);
-}
-
-.gol-legal-dialog h3 {
-  margin: 0 0 8px 0;
-  color: var(--gol-text-primary);
-}
-
-.gol-legal-dialog p {
-  margin: 0 0 10px 0;
-  color: var(--gol-text-secondary);
-  line-height: 1.35;
-}
-
-.gol-legal-dialog-actions {
-  margin-top: 12px;
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 10px;
 }
 
 @media (max-width: 900px) {
@@ -106,29 +66,5 @@ mat-checkbox {
 
   h2 {
     font-size: 1.05rem;
-  }
-
-  .gol-legal-dialog-backdrop {
-    align-items: flex-end;
-    padding: 10px;
-    padding-bottom: calc(10px + env(safe-area-inset-bottom));
-  }
-
-  .gol-legal-dialog {
-    width: 100%;
-    border-radius: 12px 12px 0 0;
-    max-height: 86dvh;
-    overflow: auto;
-    padding: 12px;
-  }
-
-  .gol-legal-dialog-actions {
-    flex-wrap: wrap;
-    justify-content: stretch;
-  }
-
-  .gol-legal-dialog-actions button {
-    flex: 1 1 140px;
-    min-height: 42px;
   }
 }

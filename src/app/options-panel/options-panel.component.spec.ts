@@ -1,37 +1,37 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { NO_ERRORS_SCHEMA } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
-import { OptionsPanelComponent } from './options-panel.component';
-import { AdaComplianceService } from '../services/ada-compliance.service';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatCardModule } from '@angular/material/card';
+import { OptionsPanelComponent } from './options-panel.component';
+import { AdaComplianceService } from '../services/ada-compliance.service';
 import { GameRuntimeService } from '../services/game-runtime.service';
 import { ThemeService } from '../services/theme.service';
 import { SimulationColorSchemeService } from '../services/simulation-color-scheme.service';
 
 class RuntimeMock {
   detectStablePopulation$ = new BehaviorSubject<boolean>(false);
-  showSpeedGauge$ = new BehaviorSubject<boolean>(true);
   performanceCaps$ = new BehaviorSubject({ maxFPS: 60, maxGPS: 30, enableFPSCap: false, enableGPSCap: false });
   maxChartGenerations$ = new BehaviorSubject<number>(5000);
   popWindowSize$ = new BehaviorSubject<number>(50);
   popTolerance$ = new BehaviorSubject<number>(0);
-  setDetectStablePopulation() {}
-  setShowSpeedGauge() {}
-  setMaxFPS() {}
-  setMaxGPS() {}
-  setEnableFPSCap() {}
-  setEnableGPSCap() {}
-  setMaxChartGenerations() {}
-  setPopWindowSize() {}
-  setPopTolerance() {}
+  setDetectStablePopulation = jasmine.createSpy('setDetectStablePopulation');
+  setMaxFPS = jasmine.createSpy('setMaxFPS');
+  setMaxGPS = jasmine.createSpy('setMaxGPS');
+  setEnableFPSCap = jasmine.createSpy('setEnableFPSCap');
+  setEnableGPSCap = jasmine.createSpy('setEnableGPSCap');
+  setMaxChartGenerations = jasmine.createSpy('setMaxChartGenerations');
+  setPopWindowSize = jasmine.createSpy('setPopWindowSize');
+  setPopTolerance = jasmine.createSpy('setPopTolerance');
+  replayFirstLoadWarning = jasmine.createSpy('replayFirstLoadWarning');
+  setOptionsOpen = jasmine.createSpy('setOptionsOpen');
 }
 
 class ThemeMock {
   availableThemes = [{ id: 'dark', label: 'Dark' }] as any;
   currentTheme = 'dark' as any;
   theme$ = new BehaviorSubject<any>('dark');
-  setTheme() {}
+  setTheme = jasmine.createSpy('setTheme');
 }
 
 class SimulationColorSchemeMock {
@@ -41,18 +41,19 @@ class SimulationColorSchemeMock {
   ] as any;
   selectedSchemeId$ = new BehaviorSubject<any>('biolife');
   currentSchemeId = 'biolife' as any;
-  setScheme() {}
+  setScheme = jasmine.createSpy('setScheme');
 }
 
 describe('OptionsPanelComponent', () => {
   let component: OptionsPanelComponent;
   let fixture: ComponentFixture<OptionsPanelComponent>;
   let adaService: AdaComplianceService;
+  let runtime: RuntimeMock;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      declarations: [ OptionsPanelComponent ],
-      imports: [ MatCheckboxModule, MatCardModule ],
+      declarations: [OptionsPanelComponent],
+      imports: [MatCheckboxModule, MatCardModule],
       providers: [
         AdaComplianceService,
         { provide: GameRuntimeService, useClass: RuntimeMock },
@@ -65,6 +66,7 @@ describe('OptionsPanelComponent', () => {
     fixture = TestBed.createComponent(OptionsPanelComponent);
     component = fixture.componentInstance;
     adaService = TestBed.inject(AdaComplianceService);
+    runtime = TestBed.inject(GameRuntimeService) as unknown as RuntimeMock;
     fixture.detectChanges();
   });
 
@@ -72,21 +74,14 @@ describe('OptionsPanelComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it('should toggle ADA compliance', () => {
+  it('should delegate ADA checkbox changes to shared ADA service', () => {
+    spyOn(adaService, 'setAdaCompliance').and.callThrough();
+
+    component.toggleAdaCompliance({ checked: false });
     component.toggleAdaCompliance({ checked: true });
-    expect(component.adaCompliance).toBe(true);
-    component.toggleAdaCompliance({ checked: false });
-    expect(component.showAdaLiabilityDialog).toBe(true);
-  });
 
-  it('should keep ADA enabled when liability dialog is canceled', () => {
-    component.adaCompliance = true;
-    component.toggleAdaCompliance({ checked: false });
-    expect(component.showAdaLiabilityDialog).toBe(true);
-
-    component.cancelDisableAda();
-    expect(component.showAdaLiabilityDialog).toBe(false);
-    expect(component.liabilityAccepted).toBe(false);
+    expect(adaService.setAdaCompliance).toHaveBeenCalledWith(false);
+    expect(adaService.setAdaCompliance).toHaveBeenCalledWith(true);
   });
 
   it('should keep ADA checkbox synced with shared state through rapid changes', () => {
@@ -100,17 +95,10 @@ describe('OptionsPanelComponent', () => {
     expect(component.adaCompliance).toBe(true);
   });
 
-  it('should only disable ADA after explicit liability confirmation', () => {
-    adaService.setAdaCompliance(true);
-    component.toggleAdaCompliance({ checked: false });
-    expect(component.showAdaLiabilityDialog).toBe(true);
+  it('should reset privacy controls by replaying onboarding and closing options', () => {
+    component.resetPrivacyControls();
 
-    component.confirmDisableAda();
-    expect(component.adaCompliance).toBe(true);
-
-    component.liabilityAccepted = true;
-    component.confirmDisableAda();
-    expect(component.adaCompliance).toBe(false);
-    expect(component.showAdaLiabilityDialog).toBe(false);
+    expect(runtime.replayFirstLoadWarning).toHaveBeenCalled();
+    expect(runtime.setOptionsOpen).toHaveBeenCalledWith(false);
   });
 });

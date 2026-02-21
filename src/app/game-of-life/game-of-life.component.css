@@ -537,6 +537,54 @@
   background: rgba(255, 255, 255, 0.04);
 }
 
+.gol-ada-onboarding-status {
+  margin-top: 4px;
+  padding: 12px 14px;
+  border-radius: 8px;
+}
+
+.gol-ada-onboarding-status-safe {
+  border: 1px solid rgba(148, 223, 189, 0.45);
+  background: rgba(22, 88, 64, 0.24);
+}
+
+.gol-ada-onboarding-status-risk {
+  border: 1px solid rgba(255, 120, 120, 0.45);
+  background: rgba(120, 20, 20, 0.24);
+}
+
+.gol-ada-onboarding-status h3 {
+  margin: 0 0 6px;
+  font-size: 0.95rem;
+}
+
+.gol-ada-onboarding-status-safe h3 {
+  color: #d5ffe8;
+}
+
+.gol-ada-onboarding-status-risk h3 {
+  color: #ffd3d3;
+}
+
+.gol-ada-onboarding-status p {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
+.gol-ada-onboarding-status-safe p {
+  color: #e2fff0;
+}
+
+.gol-ada-onboarding-status-risk p {
+  color: #ffe5e5;
+}
+
+.gol-ada-onboarding-status-note {
+  margin-top: 6px !important;
+  font-weight: 600;
+}
+
 .gol-ada-onboarding-image {
   width: 100%;
   max-height: 280px;
