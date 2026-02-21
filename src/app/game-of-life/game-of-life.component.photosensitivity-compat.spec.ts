@@ -29,6 +29,7 @@ describe('GameOfLifeComponent photosensitivity browser compatibility', () => {
       {} as any, // scriptPlayground
       {} as any, // shortcuts
       {} as any, // simulationColorSchemes
+      { open: () => ({ dismiss: () => {} }) } as any, // snackBar
       ngZone as any
     );
 
@@ -56,6 +57,7 @@ describe('GameOfLifeComponent photosensitivity browser compatibility', () => {
     const nativeCreateElement = document.createElement.bind(document);
 
     spyOn(component as any, 'getPrimaryCanvasElement').and.returnValue(sourceCanvas);
+    spyOn(component as any, 'getMonotonicNow').and.callFake(() => Date.now());
     spyOn(document, 'createElement').and.callFake((tag: any) => {
       if (String(tag).toLowerCase() === 'canvas') {
         return {
@@ -86,6 +88,7 @@ describe('GameOfLifeComponent photosensitivity browser compatibility', () => {
     const nativeCreateElement = document.createElement.bind(document);
 
     spyOn(component as any, 'getPrimaryCanvasElement').and.returnValue(sourceCanvas);
+    spyOn(component as any, 'getMonotonicNow').and.callFake(() => Date.now());
     spyOn(document, 'createElement').and.callFake((tag: any) => {
       if (String(tag).toLowerCase() === 'canvas') {
         return {
@@ -118,6 +121,7 @@ describe('GameOfLifeComponent photosensitivity browser compatibility', () => {
     const nativeCreateElement = document.createElement.bind(document);
 
     spyOn(component as any, 'getPrimaryCanvasElement').and.returnValue(sourceCanvas);
+    spyOn(component as any, 'getMonotonicNow').and.callFake(() => Date.now());
     spyOn(document, 'createElement').and.callFake((tag: any) => {
       if (String(tag).toLowerCase() === 'canvas') {
         return {
@@ -135,5 +139,40 @@ describe('GameOfLifeComponent photosensitivity browser compatibility', () => {
     expect(component.photoTestInProgress).toBeFalse();
     expect(component.photoTestResult).toContain('INCONCLUSIVE');
     expect(component.photoTestResult).toContain('blocked by browser security');
+  }));
+
+  it('auto-opens the results dialog after a background probe launched from toolbar flow', fakeAsync(() => {
+    const { component } = createComponent();
+    component.adaCompliance = true;
+    const sourceCanvas = { width: 640, height: 360 } as any;
+    const samplingContext = {
+      clearRect: () => {},
+      drawImage: () => {},
+      getImageData: () => ({ data: new Uint8ClampedArray(96 * 54 * 4) })
+    } as any;
+    const nativeCreateElement = document.createElement.bind(document);
+
+    spyOn(component as any, 'getPrimaryCanvasElement').and.returnValue(sourceCanvas);
+    spyOn(component as any, 'getMonotonicNow').and.callFake(() => Date.now());
+    spyOn(document, 'createElement').and.callFake((tag: any) => {
+      if (String(tag).toLowerCase() === 'canvas') {
+        return {
+          width: 0,
+          height: 0,
+          getContext: () => samplingContext
+        } as any;
+      }
+      return nativeCreateElement(tag);
+    });
+
+    const started = component.runPhotosensitivityProbe({ showResultsDialogOnComplete: true });
+    expect(started).toBeTrue();
+    expect(component.showPhotosensitivityDialog).toBeFalse();
+
+    tick(13000);
+
+    expect(component.photoTestInProgress).toBeFalse();
+    expect(component.showPhotosensitivityDialog).toBeTrue();
+    expect(component.photoTestResult.length).toBeGreaterThan(0);
   }));
 });

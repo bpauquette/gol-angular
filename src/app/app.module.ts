@@ -18,6 +18,7 @@ import { MatOptionModule } from '@angular/material/core';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatSidenavModule } from '@angular/material/sidenav';
+import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { AppComponent } from './app.component';
 import { GameOfLifeComponent } from './game-of-life/game-of-life.component';
@@ -69,6 +70,7 @@ import { ScriptLogDialogComponent } from './game-of-life/script-log-dialog.compo
     MatDividerModule,
     MatMenuModule,
     MatSidenavModule,
+    MatSnackBarModule,
     MatTooltipModule
   ],
   providers: [

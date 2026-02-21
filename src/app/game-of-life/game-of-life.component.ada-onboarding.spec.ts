@@ -31,6 +31,7 @@ describe('GameOfLifeComponent ADA onboarding wiring', () => {
       {} as any, // scriptPlayground
       {} as any, // shortcuts
       {} as any, // simulationColorSchemes
+      { open: () => ({ dismiss: () => {} }) } as any, // snackBar
       { run: (fn: () => any) => fn(), runOutsideAngular: (fn: () => any) => fn() } as any
     );
 
@@ -78,17 +79,12 @@ describe('GameOfLifeComponent ADA onboarding wiring', () => {
   it('starts photosensitivity probe immediately when opened from the toolbar flow', () => {
     const { component } = createComponent();
     component.adaCompliance = true;
-    (component as any).showCheckpointNotice = jasmine.createSpy('showCheckpointNotice');
     spyOn(component, 'runPhotosensitivityProbe').and.returnValue(true);
 
     component.openPhotosensitivityTest();
 
     expect(component.runPhotosensitivityProbe).toHaveBeenCalledWith({ showResultsDialogOnComplete: true });
     expect(component.showPhotosensitivityDialog).toBeFalse();
-    expect((component as any).showCheckpointNotice).toHaveBeenCalledWith(
-      jasmine.stringMatching(/about 12 seconds/),
-      true
-    );
   });
 
   it('does not allow closing first-load warning via escape before legal acknowledgment', () => {

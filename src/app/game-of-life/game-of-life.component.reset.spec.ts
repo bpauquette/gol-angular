@@ -33,6 +33,7 @@ describe('GameOfLifeComponent resetToGenerationZero', () => {
       {} as any, // scriptPlayground
       {} as any, // shortcuts
       {} as any, // simulationColorSchemes
+      { open: () => ({ dismiss: () => {} }) } as any, // snackBar
       {} as any // ngZone
     );
 

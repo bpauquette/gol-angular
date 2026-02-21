@@ -6,6 +6,7 @@ import { GameRuntimeService, DuplicateShape, StableDetectionInfo, PerformanceCap
 import { HashlifeRunMode } from '../services/hashlife-observatory.service';
 import { TimelineCheckpoint } from '../services/timeline-checkpoint.service';
 import { MatDialog } from '@angular/material/dialog';
+import { MatSnackBar, MatSnackBarRef, TextOnlySnackBar } from '@angular/material/snack-bar';
 import { ShapePaletteDialogComponent, ShapeItem } from './shape-palette-dialog.component';
 import { AuthDialogComponent } from '../auth/auth-dialog.component';
 import { AuthService } from '../services/auth.service';
@@ -190,6 +191,9 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
   private readonly photoProbeDurationMs = 12000;
   private photoTestTimerId: ReturnType<typeof setTimeout> | null = null;
   private reopenPhotosensitivityDialogAfterProbe = false;
+  private photoStatusTickerId: ReturnType<typeof setInterval> | null = null;
+  private photoStatusStartedAtMs = 0;
+  private photoStatusSnackRef: MatSnackBarRef<TextOnlySnackBar> | null = null;
 
   showScriptDialog = false;
   showScriptLogDialog = false;
@@ -329,6 +333,7 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     private scriptPlayground: ScriptPlaygroundService,
     private shortcuts: GlobalShortcutsService,
     private simulationColorSchemes: SimulationColorSchemeService,
+    private snackBar: MatSnackBar,
     private ngZone: NgZone
   ) {}
 
@@ -460,6 +465,8 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     this.stopIphoneMitigationTimers();
     this.clearCheckpointNoticeTimer();
     this.cancelPhotosensitivityProbe();
+    this.stopPhotoStatusTicker();
+    this.dismissPhotoStatusSnack();
     if (this.removeShortcutListeners) {
       this.removeShortcutListeners();
       this.removeShortcutListeners = null;
@@ -1177,18 +1184,11 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
       return;
     }
     if (this.photoTestInProgress) {
-      this.showCheckpointNotice('Photosensitivity probe is already running in the background.', true);
+      this.openPhotoStatusSnack('Photosensitivity probe is already running...');
       return;
     }
     this.photoTestResult = '';
-    const started = this.runPhotosensitivityProbe({ showResultsDialogOnComplete: true });
-    if (started) {
-      const seconds = Math.round(this.photoProbeDurationMs / 1000);
-      this.showCheckpointNotice(
-        `Photosensitivity probe started. Results will open automatically in about ${seconds} seconds.`,
-        true
-      );
-    }
+    this.runPhotosensitivityProbe({ showResultsDialogOnComplete: true });
   }
 
   closePhotosensitivityTest() {
@@ -1196,6 +1196,8 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     this.photoTestInProgress = false;
     this.reopenPhotosensitivityDialogAfterProbe = false;
     this.cancelPhotosensitivityProbe();
+    this.stopPhotoStatusTicker();
+    this.dismissPhotoStatusSnack();
   }
 
   runPhotosensitivityProbe(options: { showResultsDialogOnComplete?: boolean } = {}) {
@@ -1227,6 +1229,7 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     this.reopenPhotosensitivityDialogAfterProbe = showResultsDialogOnComplete;
     this.showPhotosensitivityDialog = false;
     this.photoTestResult = `Passive probe is running in the background for ${Math.round(this.photoProbeDurationMs / 1000)} seconds. Keep using the app normally.`;
+    this.startPhotoStatusTicker();
 
     const durationMs = this.photoProbeDurationMs;
     const sampleIntervalMs = 220;
@@ -1271,6 +1274,8 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
         this.photoTestResult = this.buildPhotosensitivitySummary(metrics, measuredFps, caps);
         this.photoTestInProgress = false;
         this.photoTestTimerId = null;
+        this.stopPhotoStatusTicker();
+        this.openPhotoStatusSnack('Photosensitivity probe complete. Review results.', 4200);
         if (this.reopenPhotosensitivityDialogAfterProbe && this.adaCompliance) {
           this.showPhotosensitivityDialog = true;
         }
@@ -1372,6 +1377,7 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     this.showPhotosensitivityDialog = false;
     const startedAt = this.getMonotonicNow();
     this.photoTestResult = 'Running compatibility-mode probe for older/limited browsers...';
+    this.startPhotoStatusTicker();
 
     const finalizeCompatibilityProbe = () => {
       const elapsed = this.getMonotonicNow() - startedAt;
@@ -1383,6 +1389,8 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
       this.ngZone.run(() => {
         this.photoTestInProgress = false;
         this.photoTestTimerId = null;
+        this.stopPhotoStatusTicker();
+        this.openPhotoStatusSnack('Photosensitivity probe complete. Review results.', 4200);
         this.photoTestResult = [
           'Result: INCONCLUSIVE (Compatibility Mode)',
           `Reason: ${reason}`,
@@ -1994,7 +2002,47 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
       clearTimeout(this.photoTestTimerId);
       this.photoTestTimerId = null;
     }
+    this.stopPhotoStatusTicker();
+    this.dismissPhotoStatusSnack();
     this.reopenPhotosensitivityDialogAfterProbe = false;
+  }
+
+  private openPhotoStatusSnack(message: string, durationMs = 0) {
+    this.dismissPhotoStatusSnack();
+    this.photoStatusSnackRef = this.snackBar.open(message, undefined, {
+      duration: durationMs > 0 ? durationMs : undefined,
+      horizontalPosition: 'center',
+      verticalPosition: 'top'
+    });
+  }
+
+  private dismissPhotoStatusSnack() {
+    this.photoStatusSnackRef?.dismiss();
+    this.photoStatusSnackRef = null;
+  }
+
+  private startPhotoStatusTicker() {
+    this.stopPhotoStatusTicker();
+    this.photoStatusStartedAtMs = this.getMonotonicNow();
+    const totalSeconds = Math.round(this.photoProbeDurationMs / 1000);
+    this.openPhotoStatusSnack(`Photosensitivity probe running... 0s / ${totalSeconds}s`);
+    this.photoStatusTickerId = setInterval(() => {
+      if (!this.photoTestInProgress) {
+        this.stopPhotoStatusTicker();
+        return;
+      }
+      const elapsedSeconds = Math.floor((this.getMonotonicNow() - this.photoStatusStartedAtMs) / 1000);
+      const boundedSeconds = Math.max(0, Math.min(totalSeconds, elapsedSeconds));
+      this.openPhotoStatusSnack(`Photosensitivity probe running... ${boundedSeconds}s / ${totalSeconds}s`);
+    }, 1000);
+  }
+
+  private stopPhotoStatusTicker() {
+    if (this.photoStatusTickerId !== null) {
+      clearInterval(this.photoStatusTickerId);
+      this.photoStatusTickerId = null;
+    }
+    this.photoStatusStartedAtMs = 0;
   }
 
   private buildPhotosensitivitySummary(metrics: PhotosensitivityProbeMetrics, measuredFps: number, caps: PerformanceCaps) {
