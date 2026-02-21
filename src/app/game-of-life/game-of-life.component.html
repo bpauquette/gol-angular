@@ -620,13 +620,35 @@
       </div>
 
       <div class="gol-dialog-backdrop" *ngIf="showFirstLoadWarning">
-        <div class="gol-dialog" role="dialog" aria-modal="true" aria-label="First Load Warning" tabindex="-1">
-          <h2>First Load Warning</h2>
-          <div class="gol-dialog-body">
-            <p>This may take a moment while we load shapes and initialize the simulation.</p>
+        <div class="gol-dialog gol-ada-onboarding-dialog" role="dialog" aria-modal="true" aria-label="ADA onboarding warning" tabindex="-1">
+          <h2 class="gol-ada-onboarding-title">Accessibility Warning: Please Review Before Continuing</h2>
+          <div class="gol-dialog-body gol-ada-onboarding-body">
+            <p>
+              ADA protections are designed to reduce photosensitivity risk and visual overstimulation.
+              This application starts with ADA mode enabled by default.
+            </p>
+            <p class="gol-ada-onboarding-warning" *ngIf="!adaCompliance">
+              ADA protections are currently OFF. You are responsible for operating without those safety limits.
+            </p>
+            <mat-checkbox
+              class="gol-ada-onboarding-toggle"
+              [checked]="adaCompliance"
+              (change)="setAdaComplianceFromOnboarding(!!$event.checked)"
+            >
+              ADA Enabled (Recommended)
+            </mat-checkbox>
+            <img
+              class="gol-ada-onboarding-image"
+              src="assets/jpeg/carl-reiner.jpeg"
+              alt="Carl Reiner reacting to compliance choices"
+            />
+            <p class="gol-ada-onboarding-caption">
+              Carl Reiner says: keep it safe, keep it funny, and maybe leave ADA on.
+            </p>
           </div>
           <div class="gol-dialog-actions">
-            <button mat-raised-button color="primary" (click)="closeFirstLoadWarning()">OK</button>
+            <button mat-stroked-button (click)="openOptions(); closeFirstLoadWarning()">Review All ADA Options</button>
+            <button mat-raised-button color="primary" (click)="closeFirstLoadWarning()">Continue</button>
           </div>
         </div>
       </div>

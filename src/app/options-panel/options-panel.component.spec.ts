@@ -12,14 +12,12 @@ import { SimulationColorSchemeService } from '../services/simulation-color-schem
 class RuntimeMock {
   detectStablePopulation$ = new BehaviorSubject<boolean>(false);
   showSpeedGauge$ = new BehaviorSubject<boolean>(true);
-  photosensitivityTesterEnabled$ = new BehaviorSubject<boolean>(false);
   performanceCaps$ = new BehaviorSubject({ maxFPS: 60, maxGPS: 30, enableFPSCap: false, enableGPSCap: false });
   maxChartGenerations$ = new BehaviorSubject<number>(5000);
   popWindowSize$ = new BehaviorSubject<number>(50);
   popTolerance$ = new BehaviorSubject<number>(0);
   setDetectStablePopulation() {}
   setShowSpeedGauge() {}
-  setPhotosensitivityTesterEnabled() {}
   setMaxFPS() {}
   setMaxGPS() {}
   setEnableFPSCap() {}
@@ -49,6 +47,7 @@ class SimulationColorSchemeMock {
 describe('OptionsPanelComponent', () => {
   let component: OptionsPanelComponent;
   let fixture: ComponentFixture<OptionsPanelComponent>;
+  let adaService: AdaComplianceService;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
@@ -65,6 +64,7 @@ describe('OptionsPanelComponent', () => {
 
     fixture = TestBed.createComponent(OptionsPanelComponent);
     component = fixture.componentInstance;
+    adaService = TestBed.inject(AdaComplianceService);
     fixture.detectChanges();
   });
 
@@ -87,5 +87,30 @@ describe('OptionsPanelComponent', () => {
     component.cancelDisableAda();
     expect(component.showAdaLiabilityDialog).toBe(false);
     expect(component.liabilityAccepted).toBe(false);
+  });
+
+  it('should keep ADA checkbox synced with shared state through rapid changes', () => {
+    adaService.setAdaCompliance(false);
+    expect(component.adaCompliance).toBe(false);
+
+    adaService.setAdaCompliance(true);
+    adaService.setAdaCompliance(false);
+    adaService.setAdaCompliance(true);
+
+    expect(component.adaCompliance).toBe(true);
+  });
+
+  it('should only disable ADA after explicit liability confirmation', () => {
+    adaService.setAdaCompliance(true);
+    component.toggleAdaCompliance({ checked: false });
+    expect(component.showAdaLiabilityDialog).toBe(true);
+
+    component.confirmDisableAda();
+    expect(component.adaCompliance).toBe(true);
+
+    component.liabilityAccepted = true;
+    component.confirmDisableAda();
+    expect(component.adaCompliance).toBe(false);
+    expect(component.showAdaLiabilityDialog).toBe(false);
   });
 });

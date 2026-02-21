@@ -127,7 +127,7 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
   popHistory: number[] = [];
   maxChartGenerations = 5000;
   isRunning = false;
-  adaCompliance = false;
+  adaCompliance = true;
   overlay?: ToolOverlay;
 
   shapesLoading = false;
@@ -182,7 +182,6 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
   showHelpDialog = false;
   showAboutDialog = false;
   showPhotosensitivityDialog = false;
-  photosensitivityTesterEnabled = false;
   photoTestInProgress = false;
   photoTestResult = '';
   private photoTestTimerId: ReturnType<typeof setTimeout> | null = null;
@@ -420,8 +419,6 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     this.subscriptions.add(this.runtime.showFirstLoadWarning$.subscribe(val => this.showFirstLoadWarning = val));
     this.subscriptions.add(this.runtime.optionsOpen$.subscribe(val => this.optionsOpen = val));
     this.subscriptions.add(this.runtime.performanceCaps$.subscribe(val => this.performanceCaps = val));
-    this.subscriptions.add(this.runtime.photosensitivityTesterEnabled$.subscribe(val => this.photosensitivityTesterEnabled = val));
-
     this.subscriptions.add(this.auth.token$.subscribe(token => this.isLoggedIn = !!token));
     this.subscriptions.add(this.auth.email$.subscribe(email => this.authEmail = email));
     this.subscriptions.add(this.auth.hasDonated$.subscribe(hasDonated => this.hasDonated = !!hasDonated));
@@ -752,6 +749,10 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
 
   closeFirstLoadWarning() {
     this.runtime.closeFirstLoadWarning();
+  }
+
+  setAdaComplianceFromOnboarding(enabled: boolean) {
+    this.adaService.setAdaCompliance(!!enabled);
   }
 
   openOptions() {
@@ -1157,8 +1158,8 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
   }
 
   openPhotosensitivityTest() {
-    if (!this.photosensitivityTesterEnabled) {
-      this.showCheckpointNotice('Enable photosensitivity tester in Options while ADA mode is on.', false);
+    if (!this.adaCompliance) {
+      this.showCheckpointNotice('Photosensitivity testing is available only when ADA mode is enabled.', false);
       return;
     }
     if (this.photoTestInProgress) {
@@ -1192,6 +1193,10 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
       this.photoTestResult = 'Unable to run probe: no canvas sampling context.';
       return;
     }
+    if (typeof scratchCtx.drawImage !== 'function' || typeof scratchCtx.getImageData !== 'function') {
+      this.runCompatibilityModePhotosensitivityProbe('Canvas pixel sampling APIs are unavailable in this browser.');
+      return;
+    }
 
     this.cancelPhotosensitivityProbe();
     this.photoTestInProgress = true;
@@ -1206,7 +1211,8 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     const changedAreaThreshold = 0.2;
     const globalLumaThreshold = 0.1;
 
-    const startedAt = performance.now();
+    type LumaBuffer = Float32Array | number[];
+    const startedAt = this.getMonotonicNow();
     let frameCount = 0;
     let flashEvents = 0;
     let lastFlashAt = -Infinity;
@@ -1214,8 +1220,16 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     let peakChangedAreaRatio = 0;
     let peakGlobalLumaDelta = 0;
     const pixelCount = scratch.width * scratch.height;
-    let previousLumaBuffer: Float32Array | null = null;
-    let currentLumaBuffer = new Float32Array(pixelCount);
+    let previousLumaBuffer: LumaBuffer | null = null;
+    const createLumaBuffer = (size: number): LumaBuffer => {
+      if (typeof Float32Array === 'function') {
+        return new Float32Array(size);
+      }
+      const fallback = new Array(size);
+      for (let i = 0; i < size; i += 1) fallback[i] = 0;
+      return fallback;
+    };
+    let currentLumaBuffer: LumaBuffer = createLumaBuffer(pixelCount);
 
     const finalize = (elapsed: number) => {
       const measuredFps = Math.max(0, Math.round((frameCount / Math.max(1, elapsed)) * 1000));
@@ -1233,7 +1247,7 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
         this.photoTestResult = this.buildPhotosensitivitySummary(metrics, measuredFps, caps);
         this.photoTestInProgress = false;
         this.photoTestTimerId = null;
-        if (this.reopenPhotosensitivityDialogAfterProbe && this.adaCompliance && this.photosensitivityTesterEnabled) {
+        if (this.reopenPhotosensitivityDialogAfterProbe && this.adaCompliance) {
           this.showPhotosensitivityDialog = true;
         }
         this.reopenPhotosensitivityDialogAfterProbe = false;
@@ -1246,11 +1260,20 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
         return;
       }
 
-      const sampleStartedAt = performance.now();
+      const sampleStartedAt = this.getMonotonicNow();
       frameCount += 1;
-      scratchCtx.clearRect(0, 0, scratch.width, scratch.height);
-      scratchCtx.drawImage(sourceCanvas, 0, 0, scratch.width, scratch.height);
-      const imageData = scratchCtx.getImageData(0, 0, scratch.width, scratch.height);
+      let imageData: ImageData;
+      try {
+        scratchCtx.clearRect(0, 0, scratch.width, scratch.height);
+        scratchCtx.drawImage(sourceCanvas, 0, 0, scratch.width, scratch.height);
+        imageData = scratchCtx.getImageData(0, 0, scratch.width, scratch.height);
+      } catch (error) {
+        console.warn('[GameOfLife] Falling back to compatibility-mode photosensitivity probe.', error);
+        this.runCompatibilityModePhotosensitivityProbe(
+          'Canvas sampling was blocked by browser security or unsupported graphics features.'
+        );
+        return;
+      }
       const data = imageData.data;
       let lumaSum = 0;
       let changedPixels = 0;
@@ -1262,7 +1285,8 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
         const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
         currentLumaBuffer[pixelIndex] = luma;
         lumaSum += luma;
-        if (previousLumaBuffer && Math.abs(luma - previousLumaBuffer[pixelIndex]) >= pixelDeltaThreshold) {
+        const priorLuma = previousLumaBuffer ? Number(previousLumaBuffer[pixelIndex] || 0) : 0;
+        if (previousLumaBuffer && Math.abs(luma - priorLuma) >= pixelDeltaThreshold) {
           changedPixels += 1;
         }
       }
@@ -1286,7 +1310,7 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
 
       previousMeanLuma = meanLuma;
       if (!previousLumaBuffer) {
-        previousLumaBuffer = new Float32Array(pixelCount);
+        previousLumaBuffer = createLumaBuffer(pixelCount);
       }
       const swap = previousLumaBuffer;
       previousLumaBuffer = currentLumaBuffer;
@@ -1298,7 +1322,7 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
         return;
       }
 
-      const sampleCostMs = performance.now() - sampleStartedAt;
+      const sampleCostMs = this.getMonotonicNow() - sampleStartedAt;
       const delayMs = Math.max(80, sampleIntervalMs - sampleCostMs);
       this.photoTestTimerId = setTimeout(sample, delayMs);
     };
@@ -1308,9 +1332,54 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     });
   }
 
+  private getMonotonicNow() {
+    if (typeof performance !== 'undefined' && performance && typeof performance.now === 'function') {
+      return performance.now();
+    }
+    return Date.now();
+  }
+
+  private runCompatibilityModePhotosensitivityProbe(reason: string) {
+    this.cancelPhotosensitivityProbe();
+    this.photoTestInProgress = true;
+    this.reopenPhotosensitivityDialogAfterProbe = this.showPhotosensitivityDialog;
+    this.showPhotosensitivityDialog = false;
+    const startedAt = this.getMonotonicNow();
+    this.photoTestResult = 'Running compatibility-mode probe for older/limited browsers...';
+
+    const finalizeCompatibilityProbe = () => {
+      const elapsed = this.getMonotonicNow() - startedAt;
+      const caps = this.performanceCaps;
+      const conservativeCapsEnabled = !!caps.enableFPSCap && !!caps.enableGPSCap
+        && Number(caps.maxFPS) <= 3
+        && Number(caps.maxGPS) <= 3;
+
+      this.ngZone.run(() => {
+        this.photoTestInProgress = false;
+        this.photoTestTimerId = null;
+        this.photoTestResult = [
+          'Result: INCONCLUSIVE (Compatibility Mode)',
+          `Reason: ${reason}`,
+          `Probe duration: ${(elapsed / 1000).toFixed(1)}s`,
+          `Configured caps: FPS ${caps.enableFPSCap ? caps.maxFPS : 'Off'}, GPS ${caps.enableGPSCap ? caps.maxGPS : 'Off'}`,
+          conservativeCapsEnabled
+            ? 'Safety estimate: Conservative caps are enabled (recommended for older browsers).'
+            : 'Safety estimate: Enable FPS/GPS caps at 3 or lower for better compatibility and safety.',
+          'Note: This browser cannot provide full pixel-level analysis for the passive probe.'
+        ].join('\n');
+
+        if (this.reopenPhotosensitivityDialogAfterProbe && this.adaCompliance) {
+          this.showPhotosensitivityDialog = true;
+        }
+        this.reopenPhotosensitivityDialogAfterProbe = false;
+      });
+    };
+
+    this.photoTestTimerId = setTimeout(finalizeCompatibilityProbe, 1200);
+  }
+
   applySafeVisualCaps() {
     this.adaService.setAdaCompliance(true);
-    this.runtime.setPhotosensitivityTesterEnabled(true);
     this.photoTestResult = 'ADA mode enabled. Autoplay remains available with conservative safety caps.';
   }
 

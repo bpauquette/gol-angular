@@ -15,9 +15,8 @@ import {
   styleUrls: ['./options-panel.component.css']
 })
 export class OptionsPanelComponent implements OnInit, OnDestroy {
-  adaCompliance = false;
+  adaCompliance = true;
   detectStablePopulation = false;
-  photosensitivityTesterEnabled = false;
   performanceCaps: PerformanceCaps = { maxFPS: 60, maxGPS: 30, enableFPSCap: false, enableGPSCap: false };
   maxChartGenerations = 5000;
   popWindowSize = 50;
@@ -45,7 +44,6 @@ export class OptionsPanelComponent implements OnInit, OnDestroy {
     this.currentSimulationColorSchemeId = this.simulationColorSchemes.currentSchemeId;
     this.subscriptions.add(this.adaService.adaCompliance$.subscribe(val => this.adaCompliance = val));
     this.subscriptions.add(this.runtime.detectStablePopulation$.subscribe(val => this.detectStablePopulation = val));
-    this.subscriptions.add(this.runtime.photosensitivityTesterEnabled$.subscribe(val => this.photosensitivityTesterEnabled = val));
     this.subscriptions.add(this.runtime.performanceCaps$.subscribe(val => this.performanceCaps = val));
     this.subscriptions.add(this.runtime.maxChartGenerations$.subscribe(val => this.maxChartGenerations = val));
     this.subscriptions.add(this.runtime.popWindowSize$.subscribe(val => this.popWindowSize = val));
@@ -75,10 +73,6 @@ export class OptionsPanelComponent implements OnInit, OnDestroy {
 
   toggleDetectStablePopulation(event: any) {
     this.runtime.setDetectStablePopulation(!!event.checked);
-  }
-
-  togglePhotosensitivityTesterEnabled(event: any) {
-    this.runtime.setPhotosensitivityTesterEnabled(!!event.checked);
   }
 
   updateMaxFPS(value: any) {

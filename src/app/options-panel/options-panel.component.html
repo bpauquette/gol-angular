@@ -31,13 +31,9 @@
     <mat-checkbox [checked]="adaCompliance" (change)="toggleAdaCompliance($event)">
       Enable ADA Compliance Mode (Recommended)
     </mat-checkbox>
-    <mat-checkbox
-      [checked]="photosensitivityTesterEnabled"
-      [disabled]="!adaCompliance"
-      (change)="togglePhotosensitivityTesterEnabled($event)"
-    >
-      Enable photosensitivity tester (manual)
-    </mat-checkbox>
+    <div class="gol-options-hint">
+      Photosensitivity testing is available when ADA mode is enabled and unavailable when ADA mode is disabled.
+    </div>
 
     <div class="gol-legal-warning" *ngIf="!adaCompliance">
       <h3>Warning: ADA Mode Is Disabled</h3>

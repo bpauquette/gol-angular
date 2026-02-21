@@ -37,6 +37,7 @@ const DEFAULT_CAPS: PerformanceCaps = {
   enableFPSCap: false,
   enableGPSCap: false
 };
+const ADA_ONBOARDING_SEEN_STORAGE_KEY = 'gol.adaOnboardingSeen.v1';
 
 @Injectable({ providedIn: 'root' })
 export class GameRuntimeService implements OnDestroy {
@@ -84,7 +85,7 @@ export class GameRuntimeService implements OnDestroy {
   private isRunningSubject = new BehaviorSubject<boolean>(false);
   isRunning$ = this.isRunningSubject.asObservable();
 
-  private adaComplianceSubject = new BehaviorSubject<boolean>(false);
+  private adaComplianceSubject = new BehaviorSubject<boolean>(true);
   adaCompliance$ = this.adaComplianceSubject.asObservable();
 
   private shapesLoadingSubject = new BehaviorSubject<boolean>(false);
@@ -144,7 +145,7 @@ export class GameRuntimeService implements OnDestroy {
   private performanceCapsSubject = new BehaviorSubject<PerformanceCaps>({ ...DEFAULT_CAPS });
   performanceCaps$ = this.performanceCapsSubject.asObservable();
 
-  private photosensitivityTesterEnabledSubject = new BehaviorSubject<boolean>(false);
+  private photosensitivityTesterEnabledSubject = new BehaviorSubject<boolean>(true);
   photosensitivityTesterEnabled$ = this.photosensitivityTesterEnabledSubject.asObservable();
 
   private preferredCaps: PerformanceCaps = { ...DEFAULT_CAPS };
@@ -158,8 +159,8 @@ export class GameRuntimeService implements OnDestroy {
     private checkpointTimeline: TimelineCheckpointService,
     private ngZone: NgZone
   ) {
-    const persistedPhotoTester = this.readBoolFromStorage('photosensitivityTesterEnabled', false);
-    this.photosensitivityTesterEnabledSubject.next(persistedPhotoTester);
+    const adaOnboardingSeen = this.readBoolFromStorage(ADA_ONBOARDING_SEEN_STORAGE_KEY, false);
+    this.showFirstLoadWarningSubject.next(!adaOnboardingSeen);
 
     this.liveCellsSubject.next(this.model.getLiveCells());
     this.engineModeSubject.next(this.model.getEngineMode());
@@ -200,6 +201,7 @@ export class GameRuntimeService implements OnDestroy {
     this.subscriptions.add(
       this.adaService.adaCompliance$.subscribe(enabled => {
         this.adaComplianceSubject.next(enabled);
+        this.photosensitivityTesterEnabledSubject.next(enabled);
         if (enabled) {
           this.pause();
           this.applyAdaCaps();
@@ -460,6 +462,7 @@ export class GameRuntimeService implements OnDestroy {
   }
 
   closeFirstLoadWarning() {
+    this.writeBoolToStorage(ADA_ONBOARDING_SEEN_STORAGE_KEY, true);
     this.showFirstLoadWarningSubject.next(false);
   }
 
@@ -473,12 +476,6 @@ export class GameRuntimeService implements OnDestroy {
 
   setDetectStablePopulation(enabled: boolean) {
     this.detectStablePopulationSubject.next(!!enabled);
-  }
-
-  setPhotosensitivityTesterEnabled(enabled: boolean) {
-    const value = !!enabled;
-    this.photosensitivityTesterEnabledSubject.next(value);
-    this.writeBoolToStorage('photosensitivityTesterEnabled', value);
   }
 
   setMaxChartGenerations(value: number) {
