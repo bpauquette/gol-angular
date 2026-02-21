@@ -8,6 +8,7 @@ import {
   SimulationColorSchemeId,
   SimulationColorSchemeService
 } from '../services/simulation-color-scheme.service';
+import { ADA_OFF_LEGAL_NOTICE } from '../shared/ada-legal-notice';
 
 @Component({
   selector: 'app-options-panel',
@@ -16,6 +17,7 @@ import {
 })
 export class OptionsPanelComponent implements OnInit, OnDestroy {
   adaCompliance = true;
+  readonly adaOffLegalNotice = ADA_OFF_LEGAL_NOTICE;
   detectStablePopulation = false;
   performanceCaps: PerformanceCaps = { maxFPS: 60, maxGPS: 30, enableFPSCap: false, enableGPSCap: false };
   maxChartGenerations = 5000;
@@ -25,8 +27,6 @@ export class OptionsPanelComponent implements OnInit, OnDestroy {
   availableThemes: ThemeOption[] = [];
   currentSimulationColorSchemeId: SimulationColorSchemeId = 'biolife';
   availableSimulationColorSchemes: SimulationColorScheme[] = [];
-  showAdaLiabilityDialog = false;
-  liabilityAccepted = false;
 
   private subscriptions = new Subscription();
 
@@ -59,16 +59,7 @@ export class OptionsPanelComponent implements OnInit, OnDestroy {
   }
 
   toggleAdaCompliance(event: any) {
-    const requested = !!event.checked;
-    if (requested) {
-      this.showAdaLiabilityDialog = false;
-      this.liabilityAccepted = false;
-      this.adaService.setAdaCompliance(true);
-      return;
-    }
-
-    this.liabilityAccepted = false;
-    this.showAdaLiabilityDialog = true;
+    this.adaService.setAdaCompliance(!!event.checked);
   }
 
   toggleDetectStablePopulation(event: any) {
@@ -111,15 +102,8 @@ export class OptionsPanelComponent implements OnInit, OnDestroy {
     this.simulationColorSchemes.setScheme(schemeId);
   }
 
-  cancelDisableAda() {
-    this.showAdaLiabilityDialog = false;
-    this.liabilityAccepted = false;
-  }
-
-  confirmDisableAda() {
-    if (!this.liabilityAccepted) return;
-    this.adaService.setAdaCompliance(false);
-    this.showAdaLiabilityDialog = false;
-    this.liabilityAccepted = false;
+  resetPrivacyControls() {
+    this.runtime.replayFirstLoadWarning();
+    this.runtime.setOptionsOpen(false);
   }
 }

@@ -36,23 +36,26 @@
     </div>
 
     <div class="gol-legal-warning" *ngIf="!adaCompliance">
-      <h3>Warning: ADA Mode Is Disabled</h3>
+      <h3>ADA protections are currently OFF</h3>
       <p>
-        You have disabled ADA protections. Animation safeguards are reduced and visual risk may increase.
+        {{ adaOffLegalNotice }}
       </p>
-      <p class="gol-legal-emphasis">
-        By continuing with ADA mode off, you accept full responsibility for operation and outcomes.
-      </p>
-      <img
-        class="gol-legal-image"
-        src="assets/jpeg/carl-reiner.jpeg"
-        alt="Humorous legal reminder image"
-      />
+    </div>
+
+    <mat-divider></mat-divider>
+    <h2>Privacy Controls</h2>
+    <div class="gol-options-hint">
+      Reset privacy controls to make the first-time ADA dialog appear again.
+    </div>
+    <div class="gol-privacy-actions">
+      <button mat-stroked-button type="button" (click)="resetPrivacyControls()">
+        Reset Privacy Controls
+      </button>
     </div>
 
     <mat-divider></mat-divider>
     <h2>Performance Settings</h2>
-    <mat-checkbox [checked]="performanceCaps.enableFPSCap" (change)="toggleEnableFPSCap($event)">
+    <mat-checkbox [checked]="performanceCaps.enableFPSCap" [disabled]="adaCompliance" (change)="toggleEnableFPSCap($event)">
       Enable FPS Cap
     </mat-checkbox>
     <mat-form-field appearance="fill">
@@ -66,7 +69,7 @@
       >
     </mat-form-field>
 
-    <mat-checkbox [checked]="performanceCaps.enableGPSCap" (change)="toggleEnableGPSCap($event)">
+    <mat-checkbox [checked]="performanceCaps.enableGPSCap" [disabled]="adaCompliance" (change)="toggleEnableGPSCap($event)">
       Enable GPS Cap
     </mat-checkbox>
     <mat-form-field appearance="fill">
@@ -112,35 +115,5 @@
         (input)="updatePopTolerance($event.target.value)"
       >
     </mat-form-field>
-
-    <div class="gol-legal-dialog-backdrop" *ngIf="showAdaLiabilityDialog">
-      <div class="gol-legal-dialog" role="dialog" aria-modal="true" aria-label="Confirm ADA disable">
-        <h3>Disable ADA Compliance?</h3>
-        <p>
-          ADA mode currently limits autoplay and visual intensity for safer operation.
-        </p>
-        <p class="gol-legal-emphasis">
-          If you disable ADA mode, you accept responsibility for running without these protections.
-        </p>
-        <mat-checkbox
-          [checked]="liabilityAccepted"
-          (change)="liabilityAccepted = !!$event.checked"
-        >
-          I understand and accept responsibility.
-        </mat-checkbox>
-        <div class="gol-legal-dialog-actions">
-          <button mat-button type="button" (click)="cancelDisableAda()">Cancel</button>
-          <button
-            mat-raised-button
-            color="warn"
-            type="button"
-            [disabled]="!liabilityAccepted"
-            (click)="confirmDisableAda()"
-          >
-            Disable ADA Mode
-          </button>
-        </div>
-      </div>
-    </div>
   </mat-card-content>
 </mat-card>

@@ -23,6 +23,7 @@ import {
 } from '../services/script-playground.service';
 import { GlobalShortcutsService, ShortcutTool } from '../services/global-shortcuts.service';
 import { SimulationColorSchemeService } from '../services/simulation-color-scheme.service';
+import { ADA_OFF_LEGAL_NOTICE } from '../shared/ada-legal-notice';
 
 type ToolName = ShortcutTool;
 interface HashlifeShowcasePattern {
@@ -142,6 +143,8 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
   detectStablePopulation = false;
 
   showFirstLoadWarning = false;
+  adaRiskAcknowledged = false;
+  readonly adaOffLegalNotice = ADA_OFF_LEGAL_NOTICE;
   optionsOpen = false;
   isCompactViewport = false;
 
@@ -184,6 +187,7 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
   showPhotosensitivityDialog = false;
   photoTestInProgress = false;
   photoTestResult = '';
+  private readonly photoProbeDurationMs = 12000;
   private photoTestTimerId: ReturnType<typeof setTimeout> | null = null;
   private reopenPhotosensitivityDialogAfterProbe = false;
 
@@ -416,7 +420,12 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     this.subscriptions.add(this.runtime.showStableDialog$.subscribe(val => this.showStableDialog = val));
     this.subscriptions.add(this.runtime.stableDetectionInfo$.subscribe(val => this.stableDetectionInfo = val));
     this.subscriptions.add(this.runtime.detectStablePopulation$.subscribe(val => this.detectStablePopulation = val));
-    this.subscriptions.add(this.runtime.showFirstLoadWarning$.subscribe(val => this.showFirstLoadWarning = val));
+    this.subscriptions.add(this.runtime.showFirstLoadWarning$.subscribe(val => {
+      this.showFirstLoadWarning = val;
+      if (val) {
+        this.adaRiskAcknowledged = false;
+      }
+    }));
     this.subscriptions.add(this.runtime.optionsOpen$.subscribe(val => this.optionsOpen = val));
     this.subscriptions.add(this.runtime.performanceCaps$.subscribe(val => this.performanceCaps = val));
     this.subscriptions.add(this.auth.token$.subscribe(token => this.isLoggedIn = !!token));
@@ -753,6 +762,11 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
 
   setAdaComplianceFromOnboarding(enabled: boolean) {
     this.adaService.setAdaCompliance(!!enabled);
+    this.adaRiskAcknowledged = false;
+  }
+
+  setAdaRiskAcknowledgedFromOnboarding(acknowledged: boolean) {
+    this.adaRiskAcknowledged = !!acknowledged;
   }
 
   openOptions() {
@@ -1167,7 +1181,14 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
       return;
     }
     this.photoTestResult = '';
-    this.showPhotosensitivityDialog = true;
+    const started = this.runPhotosensitivityProbe({ showResultsDialogOnComplete: true });
+    if (started) {
+      const seconds = Math.round(this.photoProbeDurationMs / 1000);
+      this.showCheckpointNotice(
+        `Photosensitivity probe started. Results will open automatically in about ${seconds} seconds.`,
+        true
+      );
+    }
   }
 
   closePhotosensitivityTest() {
@@ -1177,12 +1198,13 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     this.cancelPhotosensitivityProbe();
   }
 
-  runPhotosensitivityProbe() {
-    if (this.photoTestInProgress) return;
+  runPhotosensitivityProbe(options: { showResultsDialogOnComplete?: boolean } = {}) {
+    if (this.photoTestInProgress) return false;
+    const showResultsDialogOnComplete = !!options.showResultsDialogOnComplete;
     const sourceCanvas = this.getPrimaryCanvasElement();
     if (!sourceCanvas || sourceCanvas.width <= 0 || sourceCanvas.height <= 0) {
       this.photoTestResult = 'Unable to run probe: canvas is not ready.';
-      return;
+      return false;
     }
 
     const scratch = document.createElement('canvas');
@@ -1191,20 +1213,22 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     const scratchCtx = scratch.getContext('2d');
     if (!scratchCtx) {
       this.photoTestResult = 'Unable to run probe: no canvas sampling context.';
-      return;
+      return false;
     }
     if (typeof scratchCtx.drawImage !== 'function' || typeof scratchCtx.getImageData !== 'function') {
-      this.runCompatibilityModePhotosensitivityProbe('Canvas pixel sampling APIs are unavailable in this browser.');
-      return;
+      return this.runCompatibilityModePhotosensitivityProbe(
+        'Canvas pixel sampling APIs are unavailable in this browser.',
+        showResultsDialogOnComplete
+      );
     }
 
     this.cancelPhotosensitivityProbe();
     this.photoTestInProgress = true;
-    this.reopenPhotosensitivityDialogAfterProbe = this.showPhotosensitivityDialog;
+    this.reopenPhotosensitivityDialogAfterProbe = showResultsDialogOnComplete;
     this.showPhotosensitivityDialog = false;
-    this.photoTestResult = 'Passive probe is running in the background for 12 seconds. Keep using the app normally.';
+    this.photoTestResult = `Passive probe is running in the background for ${Math.round(this.photoProbeDurationMs / 1000)} seconds. Keep using the app normally.`;
 
-    const durationMs = 12000;
+    const durationMs = this.photoProbeDurationMs;
     const sampleIntervalMs = 220;
     const minFlashGapMs = 120;
     const pixelDeltaThreshold = 0.24;
@@ -1270,7 +1294,8 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
       } catch (error) {
         console.warn('[GameOfLife] Falling back to compatibility-mode photosensitivity probe.', error);
         this.runCompatibilityModePhotosensitivityProbe(
-          'Canvas sampling was blocked by browser security or unsupported graphics features.'
+          'Canvas sampling was blocked by browser security or unsupported graphics features.',
+          showResultsDialogOnComplete
         );
         return;
       }
@@ -1330,6 +1355,7 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     this.ngZone.runOutsideAngular(() => {
       sample();
     });
+    return true;
   }
 
   private getMonotonicNow() {
@@ -1339,10 +1365,10 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     return Date.now();
   }
 
-  private runCompatibilityModePhotosensitivityProbe(reason: string) {
+  private runCompatibilityModePhotosensitivityProbe(reason: string, showResultsDialogOnComplete = false) {
     this.cancelPhotosensitivityProbe();
     this.photoTestInProgress = true;
-    this.reopenPhotosensitivityDialogAfterProbe = this.showPhotosensitivityDialog;
+    this.reopenPhotosensitivityDialogAfterProbe = showResultsDialogOnComplete;
     this.showPhotosensitivityDialog = false;
     const startedAt = this.getMonotonicNow();
     this.photoTestResult = 'Running compatibility-mode probe for older/limited browsers...';
@@ -1376,11 +1402,7 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     };
 
     this.photoTestTimerId = setTimeout(finalizeCompatibilityProbe, 1200);
-  }
-
-  applySafeVisualCaps() {
-    this.adaService.setAdaCompliance(true);
-    this.photoTestResult = 'ADA mode enabled. Autoplay remains available with conservative safety caps.';
+    return true;
   }
 
   openScriptPlayground() {
@@ -2068,6 +2090,10 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
       return true;
     }
     if (this.showFirstLoadWarning) {
+      if (!this.adaCompliance && !this.adaRiskAcknowledged) {
+        this.showCheckpointNotice('Acknowledge the legal risk notice before continuing.', false);
+        return true;
+      }
       this.closeFirstLoadWarning();
       return true;
     }

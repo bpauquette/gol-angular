@@ -621,14 +621,11 @@
 
       <div class="gol-dialog-backdrop" *ngIf="showFirstLoadWarning">
         <div class="gol-dialog gol-ada-onboarding-dialog" role="dialog" aria-modal="true" aria-label="ADA onboarding warning" tabindex="-1">
-          <h2 class="gol-ada-onboarding-title">Accessibility Warning: Please Review Before Continuing</h2>
+          <h2 class="gol-ada-onboarding-title">Accessibility Setup: Please Review Before Continuing</h2>
           <div class="gol-dialog-body gol-ada-onboarding-body">
             <p>
               ADA protections are designed to reduce photosensitivity risk and visual overstimulation.
               This application starts with ADA mode enabled by default.
-            </p>
-            <p class="gol-ada-onboarding-warning" *ngIf="!adaCompliance">
-              ADA protections are currently OFF. You are responsible for operating without those safety limits.
             </p>
             <mat-checkbox
               class="gol-ada-onboarding-toggle"
@@ -637,18 +634,36 @@
             >
               ADA Enabled (Recommended)
             </mat-checkbox>
-            <img
-              class="gol-ada-onboarding-image"
-              src="assets/jpeg/carl-reiner.jpeg"
-              alt="Carl Reiner reacting to compliance choices"
-            />
-            <p class="gol-ada-onboarding-caption">
-              Carl Reiner says: keep it safe, keep it funny, and maybe leave ADA on.
-            </p>
+
+            <div class="gol-ada-onboarding-status gol-ada-onboarding-status-safe" *ngIf="adaCompliance">
+              <h3>Current status: ADA protections are ON</h3>
+              <p>
+                Safer defaults are active, including lower visual intensity and conservative simulation caps designed to reduce photosensitivity risk.
+              </p>
+              <p class="gol-ada-onboarding-status-note">
+                You can adjust ADA settings later in Options at any time.
+              </p>
+            </div>
+
+            <div class="gol-ada-onboarding-status gol-ada-onboarding-status-risk" *ngIf="!adaCompliance">
+              <h3>Current status: ADA protections are OFF</h3>
+              <p class="gol-ada-onboarding-status-note">
+                {{ adaOffLegalNotice }}
+              </p>
+            </div>
+            <mat-checkbox
+              *ngIf="!adaCompliance"
+              class="gol-ada-onboarding-toggle"
+              [checked]="adaRiskAcknowledged"
+              (change)="setAdaRiskAcknowledgedFromOnboarding(!!$event.checked)"
+            >
+              I acknowledge.
+            </mat-checkbox>
           </div>
           <div class="gol-dialog-actions">
-            <button mat-stroked-button (click)="openOptions(); closeFirstLoadWarning()">Review All ADA Options</button>
-            <button mat-raised-button color="primary" (click)="closeFirstLoadWarning()">Continue</button>
+            <button mat-raised-button color="primary" [disabled]="!adaCompliance && !adaRiskAcknowledged" (click)="closeFirstLoadWarning()">
+              {{ adaCompliance ? 'Continue with ADA ON' : 'Continue with ADA OFF' }}
+            </button>
           </div>
         </div>
       </div>
@@ -769,7 +784,7 @@
         <div class="gol-dialog" role="dialog" aria-modal="true" aria-label="Photosensitivity Test" tabindex="-1">
           <h2>Photosensitivity Test</h2>
           <div class="gol-dialog-body">
-            <p>Run a passive background analysis while you continue using the app. This dialog will reopen with results when the probe finishes.</p>
+            <p>Passive background analysis completed. Review the most recent result below.</p>
             <p class="gol-dialog-caption">This is a heuristic safety check only. It is not a medical diagnostic tool.</p>
             <div class="gol-dialog-chip-row">
               <span class="gol-chip">ADA mode: {{ adaCompliance ? 'On' : 'Off' }}</span>
@@ -780,10 +795,9 @@
           </div>
           <div class="gol-dialog-actions">
             <button mat-button (click)="closePhotosensitivityTest()">Close</button>
-            <button mat-stroked-button color="primary" (click)="runPhotosensitivityProbe()" [disabled]="photoTestInProgress">
-              {{ photoTestInProgress ? 'Running...' : 'Run Passive Probe' }}
+            <button mat-stroked-button color="primary" (click)="closePhotosensitivityTest(); openPhotosensitivityTest()">
+              Run Again
             </button>
-            <button mat-raised-button color="primary" (click)="applySafeVisualCaps()">Apply Safer Caps</button>
           </div>
         </div>
       </div>

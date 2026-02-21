@@ -56,12 +56,64 @@ describe('GameOfLifeComponent ADA onboarding wiring', () => {
     expect(runtime.closeFirstLoadWarning).toHaveBeenCalled();
   });
 
-  it('enables ADA for safe defaults', () => {
-    const { component, adaService } = createComponent();
+  it('tracks legal-risk acknowledgment state for onboarding', () => {
+    const { component } = createComponent();
+    expect(component.adaRiskAcknowledged).toBeFalse();
 
-    component.applySafeVisualCaps();
+    component.setAdaRiskAcknowledgedFromOnboarding(true);
+    expect(component.adaRiskAcknowledged).toBeTrue();
 
-    expect(adaService.setAdaCompliance).toHaveBeenCalledWith(true);
-    expect(component.photoTestResult).toContain('ADA mode enabled');
+    component.setAdaRiskAcknowledgedFromOnboarding(false);
+    expect(component.adaRiskAcknowledged).toBeFalse();
+  });
+
+  it('resets legal-risk acknowledgment when onboarding ADA toggle changes', () => {
+    const { component } = createComponent();
+    component.adaRiskAcknowledged = true;
+
+    component.setAdaComplianceFromOnboarding(false);
+    expect(component.adaRiskAcknowledged).toBeFalse();
+  });
+
+  it('starts photosensitivity probe immediately when opened from the toolbar flow', () => {
+    const { component } = createComponent();
+    component.adaCompliance = true;
+    (component as any).showCheckpointNotice = jasmine.createSpy('showCheckpointNotice');
+    spyOn(component, 'runPhotosensitivityProbe').and.returnValue(true);
+
+    component.openPhotosensitivityTest();
+
+    expect(component.runPhotosensitivityProbe).toHaveBeenCalledWith({ showResultsDialogOnComplete: true });
+    expect(component.showPhotosensitivityDialog).toBeFalse();
+    expect((component as any).showCheckpointNotice).toHaveBeenCalledWith(
+      jasmine.stringMatching(/about 12 seconds/),
+      true
+    );
+  });
+
+  it('does not allow closing first-load warning via escape before legal acknowledgment', () => {
+    const { component, runtime } = createComponent();
+    (component as any).showCheckpointNotice = jasmine.createSpy('showCheckpointNotice');
+    component.showFirstLoadWarning = true;
+    component.adaCompliance = false;
+    component.adaRiskAcknowledged = false;
+
+    const handled = (component as any).closeTopmostDialog();
+
+    expect(handled).toBeTrue();
+    expect((component as any).showCheckpointNotice).toHaveBeenCalled();
+    expect(runtime.closeFirstLoadWarning).not.toHaveBeenCalled();
+  });
+
+  it('allows closing first-load warning via escape without legal acknowledgment when ADA is on', () => {
+    const { component, runtime } = createComponent();
+    component.showFirstLoadWarning = true;
+    component.adaCompliance = true;
+    component.adaRiskAcknowledged = false;
+
+    const handled = (component as any).closeTopmostDialog();
+
+    expect(handled).toBeTrue();
+    expect(runtime.closeFirstLoadWarning).toHaveBeenCalled();
   });
 });

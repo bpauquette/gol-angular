@@ -1,0 +1,2 @@
+export const ADA_OFF_LEGAL_NOTICE =
+  'By continuing with ADA mode off, you acknowledge increased safety risk and accept responsibility for operating without these safeguards. To the maximum extent permitted by law, the developers and distributors of this application are not legally responsible for harms resulting from your choice to disable ADA safeguards. This does not waive liability that cannot be waived by law.';
