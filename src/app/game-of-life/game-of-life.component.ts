@@ -713,13 +713,14 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     this.cancelHashlifeLeap(false);
     this.runtime.pause();
 
-    let cells = this.readGenerationZeroPattern();
-    if (!cells.length && this.generation === 0) {
-      cells = this.normalizePatternCells(this.liveCells);
-    }
+    const stored = this.readGenerationZeroPattern();
+    const fallback = this.normalizePatternCells(this.liveCells);
+    const cells = stored.length ? stored : fallback;
     this.model.setLiveCells(cells, 0);
     this.runtime.syncNow(true);
-    this.persistGenerationZeroPatternIfNeeded();
+    this.liveCells = cells;
+    this.generation = 0;
+    this.persistGenerationZeroPattern(cells);
     this.showCheckpointNotice('Reset to generation 0 pattern.', true);
   }
 
@@ -2286,20 +2287,24 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     return normalized;
   }
 
-  private persistGenerationZeroPatternIfNeeded() {
-    if (this.generation !== 0) return;
+  private persistGenerationZeroPattern(cells: Array<{ x: number; y: number } | null | undefined>) {
     try {
-      const cells = this.normalizePatternCells(this.liveCells);
+      const normalized = this.normalizePatternCells(cells);
       localStorage.setItem(
         this.generationZeroStorageKey,
         JSON.stringify({
           savedAt: new Date().toISOString(),
-          cells
+          cells: normalized
         })
       );
     } catch (error) {
       console.error('[GameOfLife] Failed to persist generation-zero pattern.', error);
     }
+  }
+
+  private persistGenerationZeroPatternIfNeeded() {
+    if (this.generation !== 0) return;
+    this.persistGenerationZeroPattern(this.liveCells);
   }
 
   private readGenerationZeroPattern() {
