@@ -256,6 +256,45 @@
   display: flex;
 }
 
+.gol-root.chrome-hidden .gol-left,
+.gol-root.chrome-hidden .gol-right,
+.gol-root.chrome-hidden .gol-toolstrip,
+.gol-root.chrome-hidden .gol-engine-note,
+.gol-root.chrome-hidden .gol-hashlife-mobile-toggle,
+.gol-root.chrome-hidden .gol-hashlife-observatory,
+.gol-root.chrome-hidden .gol-statusbar {
+  display: none;
+}
+
+.gol-root.chrome-hidden .gol-topbar {
+  grid-template-columns: 1fr;
+  gap: 8px;
+  padding: 8px 12px;
+  padding-top: calc(8px + env(safe-area-inset-top));
+}
+
+.gol-root.chrome-hidden .gol-center {
+  width: 100%;
+  justify-content: center;
+}
+
+.gol-root.chrome-hidden .gol-center .gol-run {
+  margin: 0 auto;
+}
+
+.gol-root.chrome-hidden .gol-shell {
+  height: calc(100vh - 72px);
+  height: calc(100dvh - 72px);
+}
+
+.gol-root.phone-controls.chrome-hidden .gol-center .gol-run {
+  display: flex;
+}
+
+.gol-root.phone-controls.chrome-hidden .gol-mobile-dock {
+  display: none;
+}
+
 .gol-root.phone-controls .gol-shell {
   height: calc(100vh - 168px);
   height: calc(100dvh - 168px);
@@ -463,6 +502,21 @@
 
 .gol-dialog-body { margin-top: 8px; }
 
+.gol-privacy-policy-text,
+.gol-release-notes-text {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.5;
+  font-size: 0.82rem;
+  color: var(--gol-text-secondary);
+  max-height: min(62vh, 520px);
+  overflow: auto;
+  padding: 8px;
+  border: 1px solid var(--gol-panel-border);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.14);
+}
+
 .gol-dialog-meta {
   display: flex;
   gap: 8px;
@@ -486,6 +540,23 @@
   border: 1px solid rgba(255, 90, 90, 0.35);
   background: rgba(120, 20, 20, 0.25);
   color: rgba(255, 190, 190, 0.92);
+}
+
+.gol-dialog-success {
+  margin: 6px 0 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(112, 255, 164, 0.35);
+  background: rgba(25, 90, 46, 0.28);
+  color: rgba(196, 255, 217, 0.95);
+}
+
+.gol-account-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 2px;
+  color: var(--gol-text-secondary);
 }
 
 .gol-dialog-actions {
@@ -583,6 +654,47 @@
 .gol-ada-onboarding-status-note {
   margin-top: 6px !important;
   font-weight: 600;
+}
+
+.gol-ada-onboarding-extra {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.gol-ada-onboarding-card {
+  border: 1px solid var(--gol-panel-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 10px;
+}
+
+.gol-ada-onboarding-card h3 {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+  color: var(--gol-text-primary);
+}
+
+.gol-ada-onboarding-card p {
+  margin: 0 0 8px;
+  color: var(--gol-text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.gol-ada-onboarding-card ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--gol-text-secondary);
+  font-size: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.gol-ada-onboarding-help {
+  margin-top: 10px;
 }
 
 .gol-ada-onboarding-image {
@@ -1636,6 +1748,13 @@
   color: var(--gol-text-primary);
 }
 
+.gol-help-card p {
+  margin: 0 0 8px;
+  color: var(--gol-text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
 .gol-help-card ul {
   margin: 0;
   padding-left: 18px;
@@ -1644,6 +1763,36 @@
   gap: 6px;
   color: var(--gol-text-secondary);
   font-size: 0.8rem;
+}
+
+.gol-help-link-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.gol-help-link-list a {
+  color: #9ed0ff;
+  text-decoration: underline;
+  font-size: 0.8rem;
+}
+
+.gol-about-section {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--gol-panel-border);
+}
+
+.gol-about-section h3 {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+}
+
+.gol-about-section p {
+  margin: 0 0 8px;
+  color: var(--gol-text-secondary);
+  font-size: 0.84rem;
+  line-height: 1.4;
 }
 
 @media (max-width: 860px) {
@@ -1845,6 +1994,10 @@
 
   .gol-ada-onboarding-image {
     max-height: 220px;
+  }
+
+  .gol-ada-onboarding-extra {
+    grid-template-columns: 1fr;
   }
 
   .gol-load-item {

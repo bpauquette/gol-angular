@@ -147,6 +147,7 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
   adaRiskAcknowledged = false;
   readonly adaOffLegalNotice = ADA_OFF_LEGAL_NOTICE;
   optionsOpen = false;
+  showUIChrome = true;
   isCompactViewport = false;
 
   showSaveDialog = false;
@@ -172,7 +173,7 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
 
   isLoggedIn = false;
   authEmail: string | null = null;
-  hasDonated = false;
+  hasSupportAccess = false;
 
   showImportShapeDialog = false;
   importShapeName = 'Imported Shape';
@@ -232,13 +233,216 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
 
   showStatisticsDialog = false;
   showAccountDialog = false;
+  accountDialogBusy = false;
+  accountDialogError: string | null = null;
+  accountDialogSuccess: string | null = null;
+  accountDeletionScheduled = false;
+  accountDeletionDate: string | null = null;
+  accountDeletionDaysRemaining: number | null = null;
+  showAccountDeleteConfirm = false;
   showMyShapesDialog = false;
   myShapesLoading = false;
   myShapesError: string | null = null;
   myShapes: ShapeItem[] = [];
   selectedMyShapeId: string | null = null;
+  showSupportPaymentDialog = false;
+  supportPaymentBusy = false;
+  supportPaymentError: string | null = null;
+  supportPaymentSuccess: string | null = null;
+  supportPaymentConfigLoaded = false;
+  supportPaymentPayPalEnabled = false;
+  supportPaymentClientId: string | null = null;
+  private supportPaymentScriptLoading = false;
+  showSupportRequestDialog = false;
+  supportRequestContactInfo = '';
+  supportRequestText = '';
+  supportRequestBusy = false;
+  supportRequestError: string | null = null;
+  supportRequestSuccess: string | null = null;
 
   showPrivacyPolicyDialog = false;
+  showReleaseNotesDialog = false;
+  readonly releaseNotesText = `RELEASE NOTES
+Release Tag: gol-angular/v1.0.5
+Compared To: v1.0.4
+Release Date: February 22, 2026
+
+COMMIT-BY-COMMIT BREAKDOWN
+
+- [policy-accuracy] Added explicit Published metadata and corrected privacy-policy security wording to match backend behavior.
+- [support-contact] Updated privacy-policy support contact to use relative in-app URLs for support request (/requestsupport) and support purchase (/support).
+- [release-docs] Updated release-note metadata for the v1.0.5 support/contact patch.
+
+WHAT CHANGED SINCE THE LAST RELEASE
+
+- Privacy Policy now includes explicit Published metadata and revised security wording aligned with backend implementation.
+- Privacy/support contact now uses relative in-app URL routing (/requestsupport and /support).
+- Release metadata advanced to gol-angular/v1.0.5.
+
+GITHUB TAG TRACKING
+
+- Releases are tracked with Git tags.
+- Tag format: gol-angular/vMAJOR.MINOR.PATCH
+- Compare releases in GitHub by tag range (for example, v1.0.4...v1.0.5).`;
+  readonly privacyPolicyText = `PRIVACY POLICY
+Published: February 22, 2026
+Last Updated: February 22, 2026
+
+1. INTRODUCTION
+This Privacy Policy describes how Conway's Game of Life ("we," "us," or "the App") collects, uses, and protects your information when you use our web application.
+
+2. INFORMATION WE COLLECT
+
+2.1 Account Information
+When you create an account, we collect:
+- Email address
+- Password (stored only as a salted bcrypt hash; raw password is not retained)
+- Display name (optional)
+
+2.2 User-Generated Content
+- Shapes, grids, and scripts you create or save
+- Names, descriptions, metadata, and public/private visibility choices
+
+2.3 Support Purchase Information
+- One-time lifetime support membership purchase amount ($10 USD) and date
+- PayPal transaction identifiers and payer email confirmation
+- We do not store full credit card or bank account details
+
+2.4 Usage and Device Data
+- Patterns and grids you run or load
+- Settings preferences (for example FPS, color scheme, ADA compliance)
+- Device and browser information from standard server logs
+
+2.5 Cookies & Storage
+- Browser localStorage stores your settings and preferences locally
+- Session tokens for authentication
+- No third-party advertising cookies
+
+3. HOW WE USE YOUR INFORMATION
+
+3.1 Core App Functions
+- To provide and maintain the application
+- To create and authenticate your account
+- To store your saved grids, shapes, and scripts
+- To process one-time PayPal support membership payments and send confirmations
+
+3.2 Community Features
+- To display your published shapes in the community gallery
+- To attribute shapes to your account (if you choose to publish)
+
+3.3 Improvement & Support
+- To debug technical issues
+- To improve app performance and features
+- To respond to your support requests
+
+3.4 Legal Compliance
+- To comply with applicable laws and regulations
+- To enforce our terms of service
+- To protect against fraud or abuse
+
+4. DATA SHARING & DISCLOSURE
+
+4.1 We Do NOT Share Your Data
+- We do not sell your personal information
+- We do not share your data with advertisers or marketing companies
+- We do not share your email with third parties (except as required below)
+
+4.2 Limited Sharing
+- PayPal (payment processing): Payment transaction details required to complete checkout
+- Web hosting provider: Standard server logs (IP, browser type)
+- Legal authorities: Only if required by law
+
+4.3 Published Content
+- Shapes you choose to publish are visible to all users
+- Published shapes include your attribution (account name)
+- You control what you publish; unpublished content is private
+
+5. USER CONTROLS AVAILABLE IN THE APPS
+- Open the Privacy Policy from the account/about menus at any time
+- Create, save, and delete grids, shapes, and scripts through in-app dialogs
+- Choose public/private visibility when saving content and change visibility later
+- Download your account data (including shapes, grids, and scripts) from Account & Privacy
+- Schedule account deletion with a 30-day grace period and cancel during that period
+- Use the Support actions (heart icon/menu) to open the PayPal checkout flow
+
+6. DATA RETENTION
+
+6.1 How Long We Keep Your Data
+- Account information: As long as your account exists
+- Saved grids, shapes, and scripts: Until you delete them
+- Published community shapes: Until you unpublish or delete
+- Payment records: Up to 7 years for accounting and legal compliance
+- Usage logs: 30 days (for troubleshooting)
+- Backup copies: Up to 90 days after deletion
+
+6.2 Content Deletion
+- You can delete individual saved grids, shapes, and scripts in the app
+- Public content can be switched back to private or removed from your account
+- You can schedule full account deletion in-app and cancel during the grace period
+
+7. SECURITY
+
+7.1 Protection Measures
+- HTTPS encryption for all data in transit
+- Hashed passwords (bcrypt with salt)
+- Environment-scoped access controls for application databases
+- Regular security updates and patching
+- Access controls and authentication required
+
+7.2 Limitations
+- No security system is 100% secure
+- We cannot guarantee absolute protection against all attacks
+- We will notify you of any confirmed data breaches affecting your account
+
+8. YOUR RIGHTS
+- You can request access, correction, export, or deletion of your personal data
+- You can request account-level privacy support through the in-app Support Request form at /requestsupport
+- You can use the Support Access purchase form at /support for one-time lifetime support membership payments
+- We respond to verified privacy requests within 30 days
+
+9. INTERNATIONAL USERS
+
+9.1 GDPR (Europe)
+If you are in the EU, you have rights under GDPR including:
+- Right to access your data
+- Right to correction
+- Right to deletion ("right to be forgotten")
+- Right to data portability
+- Right to restrict processing
+- Right to object to processing
+- Right to lodge a complaint with your data protection authority
+
+9.2 CCPA (California)
+California residents have the right to:
+- Know what personal information is collected (see Section 2)
+- Know whether personal information is shared or sold (we do not sell data)
+- Access and delete personal information through supported in-app controls or by request
+- Opt-out of any future sales or sharing (we do not sell data)
+- Non-discrimination for exercising CCPA rights
+
+9.3 Other Jurisdictions
+We comply with data protection laws in your jurisdiction. If you believe your rights are violated, contact us.
+
+10. CHANGES TO THIS POLICY
+
+- We may update this policy periodically
+- Material changes will be announced in-app
+- Continued use after updates constitutes acceptance
+- We will maintain a version history accessible upon request
+
+11. CONTACT US
+
+If you have questions about this privacy policy or our practices:
+
+Support Request URL: /requestsupport
+Support Purchase URL: /support
+Open either support form from the support actions in the app
+
+We will respond to privacy inquiries within 30 days.
+
+---
+
+This privacy policy was published on February 22, 2026, is effective as of February 22, 2026, and applies to all users of the Game of Life application.`;
 
   showCaptureDialog = false;
   captureShapeName = 'Captured Shape';
@@ -259,8 +463,8 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
   offsetX = 0;
   offsetY = 0;
   cellSize = 8;
-  minCellSize = 2;
-  maxCellSize = 32;
+  readonly maxCellSize = 200;
+  readonly zoomFactor = 1.12;
   lastCanvasWidth = 800;
   lastCanvasHeight = 600;
 
@@ -435,7 +639,7 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     this.subscriptions.add(this.runtime.performanceCaps$.subscribe(val => this.performanceCaps = val));
     this.subscriptions.add(this.auth.token$.subscribe(token => this.isLoggedIn = !!token));
     this.subscriptions.add(this.auth.email$.subscribe(email => this.authEmail = email));
-    this.subscriptions.add(this.auth.hasDonated$.subscribe(hasDonated => this.hasDonated = !!hasDonated));
+    this.subscriptions.add(this.auth.hasSupportAccess$.subscribe(hasSupportAccess => this.hasSupportAccess = !!hasSupportAccess));
 
     this.removeShortcutListeners = this.shortcuts.register({
       canHandle: () => this.canHandleGlobalShortcuts(),
@@ -448,6 +652,7 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
         this.setTool('shapes');
         this.openShapePalette();
       },
+      toggleChrome: () => this.toggleChrome(),
       toggleOptions: () => this.toggleOptions(),
       zoomIn: () => this.zoomIn(),
       zoomOut: () => this.zoomOut(),
@@ -788,6 +993,13 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     this.runtime.toggleOptions();
   }
 
+  toggleChrome() {
+    this.showUIChrome = !this.showUIChrome;
+    if (!this.showUIChrome && this.optionsOpen) {
+      this.runtime.setOptionsOpen(false);
+    }
+  }
+
   setOptionsOpen(open: boolean) {
     this.runtime.setOptionsOpen(open);
   }
@@ -1016,19 +1228,34 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
 
   private applyZoomAtPoint(deltaY: number, screenX: number, screenY: number) {
     const prevSize = this.cellSize;
-    const nextSize = deltaY > 0
-      ? Math.max(this.minCellSize, prevSize - 1)
-      : Math.min(this.maxCellSize, prevSize + 1);
+    const nextSize = this.calculateZoomCellSize(prevSize, deltaY);
     if (nextSize === prevSize) return;
 
     const centerX = this.lastCanvasWidth / 2;
     const centerY = this.lastCanvasHeight / 2;
-    const cellX = this.offsetX + (screenX - centerX) / prevSize;
-    const cellY = this.offsetY + (screenY - centerY) / prevSize;
+    const anchorX = Number.isFinite(screenX) ? screenX : centerX;
+    const anchorY = Number.isFinite(screenY) ? screenY : centerY;
+    const cellX = this.offsetX + (anchorX - centerX) / prevSize;
+    const cellY = this.offsetY + (anchorY - centerY) / prevSize;
 
     this.cellSize = nextSize;
-    this.offsetX = cellX - (screenX - centerX) / nextSize;
-    this.offsetY = cellY - (screenY - centerY) / nextSize;
+    this.offsetX = cellX - (anchorX - centerX) / nextSize;
+    this.offsetY = cellY - (anchorY - centerY) / nextSize;
+  }
+
+  private calculateZoomCellSize(currentSize: number, zoomDirection: number) {
+    const dpr = globalThis.devicePixelRatio || 1;
+    const minCellSize = 1 / dpr;
+    const factor = zoomDirection < 0 ? this.zoomFactor : 1 / this.zoomFactor;
+
+    const prevDevice = currentSize * dpr;
+    const maxDevice = this.maxCellSize * dpr;
+    let nextDevice = Math.max(1, Math.min(maxDevice, prevDevice * factor));
+    const snappedDevice = nextDevice > prevDevice ? Math.ceil(nextDevice) : Math.floor(nextDevice);
+    nextDevice = Math.max(1, Math.min(Math.round(maxDevice), snappedDevice));
+
+    const snappedSize = Math.max(minCellSize, nextDevice / dpr);
+    return snappedSize === currentSize ? currentSize : snappedSize;
   }
 
   setTool(tool: ToolName) {
@@ -1067,13 +1294,197 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     });
   }
 
-  openDonate() {
-    const donateUrl = this.getDonateUrl();
-    this.logUi('donate.open', { donateUrl });
-    const popup = window.open(donateUrl, '_blank', 'noopener,noreferrer');
-    if (!popup) {
-      // Fallback for popup blockers.
-      window.location.href = donateUrl;
+  openSupport() {
+    if (!this.auth.isLoggedIn) {
+      this.openAuth('login');
+      return;
+    }
+    this.logUi('support.open', { mode: 'in-app' });
+    this.showSupportPaymentDialog = true;
+    this.supportPaymentBusy = false;
+    this.supportPaymentError = null;
+    this.supportPaymentSuccess = null;
+    this.supportPaymentConfigLoaded = false;
+    this.supportPaymentPayPalEnabled = false;
+    this.supportPaymentClientId = null;
+    void this.initializeSupportCheckout();
+  }
+
+  closeSupportPaymentDialog() {
+    this.showSupportPaymentDialog = false;
+    this.supportPaymentBusy = false;
+    this.supportPaymentError = null;
+    this.supportPaymentSuccess = null;
+  }
+
+  private async initializeSupportCheckout() {
+    this.supportPaymentBusy = true;
+    this.supportPaymentError = null;
+    try {
+      const config = await this.auth.getPaymentConfig();
+      const envClientId = String((globalThis as any)?.process?.env?.NG_APP_PAYPAL_CLIENT_ID || '').trim();
+      const paypalEnabled = !!config?.paypal?.enabled;
+      const clientId = String(config?.paypal?.clientId || envClientId || '').trim();
+
+      this.supportPaymentConfigLoaded = true;
+      this.supportPaymentPayPalEnabled = paypalEnabled && !!clientId;
+      this.supportPaymentClientId = clientId || null;
+
+      if (!this.supportPaymentPayPalEnabled) {
+        this.supportPaymentError = paypalEnabled
+          ? 'PayPal is enabled but not configured with a client ID.'
+          : 'PayPal is not enabled in this environment.';
+        return;
+      }
+
+      await this.ensurePayPalSdkLoaded(clientId);
+      await this.renderPayPalSupportButtons();
+    } catch (error: any) {
+      this.supportPaymentError = String(error?.message || 'Failed to initialize support checkout.');
+    } finally {
+      this.supportPaymentBusy = false;
+    }
+  }
+
+  private ensurePayPalSdkLoaded(clientId: string): Promise<void> {
+    if ((window as any)?.paypal?.Buttons) {
+      return Promise.resolve();
+    }
+
+    if (this.supportPaymentScriptLoading) {
+      return new Promise((resolve, reject) => {
+        const poll = () => {
+          if ((window as any)?.paypal?.Buttons) {
+            resolve();
+            return;
+          }
+          if (!this.supportPaymentScriptLoading) {
+            reject(new Error('PayPal SDK failed to load.'));
+            return;
+          }
+          window.setTimeout(poll, 60);
+        };
+        poll();
+      });
+    }
+
+    this.supportPaymentScriptLoading = true;
+    return new Promise((resolve, reject) => {
+      const existing = document.querySelector('script[data-gol-paypal-sdk="1"]') as HTMLScriptElement | null;
+      const handleLoad = () => {
+        this.supportPaymentScriptLoading = false;
+        resolve();
+      };
+      const handleError = () => {
+        this.supportPaymentScriptLoading = false;
+        reject(new Error('Failed to load PayPal SDK.'));
+      };
+
+      if (existing) {
+        existing.addEventListener('load', handleLoad, { once: true });
+        existing.addEventListener('error', handleError, { once: true });
+        return;
+      }
+
+      const script = document.createElement('script');
+      const encodedId = encodeURIComponent(clientId);
+      script.src = `https://www.paypal.com/sdk/js?client-id=${encodedId}&currency=USD`;
+      script.async = true;
+      script.dataset.golPaypalSdk = '1';
+      script.addEventListener('load', handleLoad, { once: true });
+      script.addEventListener('error', handleError, { once: true });
+      document.head.appendChild(script);
+    });
+  }
+
+  private async renderPayPalSupportButtons() {
+    const container = document.getElementById('gol-angular-paypal-button-container');
+    const paypal = (window as any)?.paypal;
+    if (!container || !paypal?.Buttons) {
+      throw new Error('PayPal checkout UI is unavailable.');
+    }
+    if (!this.authEmail) {
+      throw new Error('Please login before purchasing support access.');
+    }
+    container.innerHTML = '';
+
+    paypal.Buttons({
+      createOrder: (_data: any, actions: any) => actions.order.create({
+        purchase_units: [{ amount: { value: '10.00' } }]
+      }),
+      onApprove: async (data: any, actions: any) => {
+        this.supportPaymentBusy = true;
+        this.supportPaymentError = null;
+        this.supportPaymentSuccess = null;
+        try {
+          const capture = await actions.order.capture();
+          const transactionId = String(data?.id || capture?.id || '').trim();
+          if (!transactionId) {
+            throw new Error('PayPal returned an empty transaction ID.');
+          }
+
+          await this.auth.recordPayPalSupportPayment({
+            transactionId,
+            email: String(this.authEmail || '').trim(),
+            amount: 10,
+            currency: 'USD'
+          });
+          await this.auth.refreshMe();
+          this.supportPaymentSuccess = `Payment recorded. Transaction ID: ${transactionId}`;
+        } catch (error: any) {
+          this.supportPaymentError = String(error?.message || 'Failed to record PayPal payment.');
+        } finally {
+          this.supportPaymentBusy = false;
+        }
+      },
+      onError: (error: any) => {
+        this.supportPaymentBusy = false;
+        this.supportPaymentError = String(error?.message || 'PayPal payment failed.');
+      }
+    }).render(container);
+  }
+
+  openSupportRequestDialog() {
+    this.supportRequestContactInfo = String(this.authEmail || '').trim();
+    this.supportRequestText = '';
+    this.supportRequestError = null;
+    this.supportRequestSuccess = null;
+    this.supportRequestBusy = false;
+    this.showSupportRequestDialog = true;
+  }
+
+  closeSupportRequestDialog() {
+    this.showSupportRequestDialog = false;
+    this.supportRequestBusy = false;
+    this.supportRequestError = null;
+    this.supportRequestSuccess = null;
+  }
+
+  async submitSupportRequest() {
+    const contactInfo = String(this.supportRequestContactInfo || '').trim();
+    const requestText = String(this.supportRequestText || '').trim();
+    if (!contactInfo) {
+      this.supportRequestError = 'Contact info is required.';
+      return;
+    }
+    if (!requestText) {
+      this.supportRequestError = 'Support request details are required.';
+      return;
+    }
+
+    this.supportRequestBusy = true;
+    this.supportRequestError = null;
+    this.supportRequestSuccess = null;
+    try {
+      const response = await this.auth.submitSupportRequest({ contactInfo, requestText });
+      this.supportRequestText = '';
+      const requestId = String(response?.requestId || 'N/A');
+      const requestedAt = String(response?.requestedAt || new Date().toISOString());
+      this.supportRequestSuccess = `Request submitted. Reference ID: ${requestId}. Time: ${requestedAt}`;
+    } catch (error: any) {
+      this.supportRequestError = String(error?.message || 'Failed to submit support request.');
+    } finally {
+      this.supportRequestBusy = false;
     }
   }
 
@@ -1694,11 +2105,103 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
       return;
     }
     void this.auth.refreshMe();
+    this.accountDialogError = null;
+    this.accountDialogSuccess = null;
+    this.showAccountDeleteConfirm = false;
     this.showAccountDialog = true;
+    void this.refreshAccountDeletionStatus();
   }
 
   closeAccountDialog() {
     this.showAccountDialog = false;
+    this.showAccountDeleteConfirm = false;
+  }
+
+  async refreshAccountDeletionStatus() {
+    if (!this.auth.isLoggedIn) return;
+    this.accountDialogBusy = true;
+    this.accountDialogError = null;
+    try {
+      const status = await this.auth.getAccountDeletionStatus();
+      this.accountDeletionScheduled = !!status?.deletionScheduled;
+      this.accountDeletionDate = status?.deletionDate || null;
+      this.accountDeletionDaysRemaining = Number.isFinite(Number(status?.daysRemaining))
+        ? Number(status?.daysRemaining)
+        : null;
+    } catch (error: any) {
+      this.accountDialogError = String(error?.message || 'Failed to load account status.');
+    } finally {
+      this.accountDialogBusy = false;
+    }
+  }
+
+  async downloadMyData() {
+    if (!this.auth.isLoggedIn) {
+      this.openAuth('login');
+      return;
+    }
+    this.accountDialogBusy = true;
+    this.accountDialogError = null;
+    this.accountDialogSuccess = null;
+    try {
+      const exportData = await this.auth.exportAccountData();
+      const date = new Date().toISOString().slice(0, 10);
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `game-of-life-data-${date}.json`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      this.accountDialogSuccess = 'Your data export has been downloaded.';
+    } catch (error: any) {
+      this.accountDialogError = String(error?.message || 'Failed to export your data.');
+    } finally {
+      this.accountDialogBusy = false;
+    }
+  }
+
+  async scheduleMyAccountDeletion() {
+    if (!this.auth.isLoggedIn) {
+      this.openAuth('login');
+      return;
+    }
+    this.accountDialogBusy = true;
+    this.accountDialogError = null;
+    this.accountDialogSuccess = null;
+    try {
+      const result = await this.auth.scheduleAccountDeletion(30);
+      this.showAccountDeleteConfirm = false;
+      this.accountDialogSuccess = result?.deletionDate
+        ? `Account deletion scheduled for ${new Date(result.deletionDate).toLocaleDateString()}.`
+        : 'Account deletion has been scheduled.';
+      await this.refreshAccountDeletionStatus();
+    } catch (error: any) {
+      this.accountDialogError = String(error?.message || 'Failed to schedule account deletion.');
+    } finally {
+      this.accountDialogBusy = false;
+    }
+  }
+
+  async cancelMyAccountDeletion() {
+    if (!this.auth.isLoggedIn) {
+      this.openAuth('login');
+      return;
+    }
+    this.accountDialogBusy = true;
+    this.accountDialogError = null;
+    this.accountDialogSuccess = null;
+    try {
+      await this.auth.cancelAccountDeletion();
+      this.accountDialogSuccess = 'Account deletion canceled.';
+      await this.refreshAccountDeletionStatus();
+    } catch (error: any) {
+      this.accountDialogError = String(error?.message || 'Failed to cancel account deletion.');
+    } finally {
+      this.accountDialogBusy = false;
+    }
   }
 
   async openMyShapesDialog() {
@@ -1797,6 +2300,14 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     this.showPrivacyPolicyDialog = false;
   }
 
+  openReleaseNotesDialog() {
+    this.showReleaseNotesDialog = true;
+  }
+
+  closeReleaseNotesDialog() {
+    this.showReleaseNotesDialog = false;
+  }
+
   closeCaptureDialog() {
     this.showCaptureDialog = false;
     this.captureShapeError = null;
@@ -1881,8 +2392,11 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
         this.toolState.last = { x: evt.x, y: evt.y };
         this.syncCells();
       } else if (this.selectedTool === 'toggle') {
-        const pts = computeLine(this.toolState.last?.x ?? evt.x, this.toolState.last?.y ?? evt.y, evt.x, evt.y);
-        for (const [px, py] of pts) this.model.toggleCell(px, py);
+        const lastX = this.toolState.last?.x ?? evt.x;
+        const lastY = this.toolState.last?.y ?? evt.y;
+        const pts = computeLine(lastX, lastY, evt.x, evt.y);
+        const ptsToToggle = pts.length > 1 ? pts.slice(1) : [];
+        for (const [px, py] of ptsToToggle) this.model.toggleCell(px, py);
         this.toolState.last = { x: evt.x, y: evt.y };
         this.syncCells();
       } else if (this.selectedTool === 'erase') {
@@ -2097,8 +2611,20 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
       this.closeCaptureDialog();
       return true;
     }
+    if (this.showSupportPaymentDialog) {
+      this.closeSupportPaymentDialog();
+      return true;
+    }
+    if (this.showSupportRequestDialog) {
+      this.closeSupportRequestDialog();
+      return true;
+    }
     if (this.showPrivacyPolicyDialog) {
       this.closePrivacyPolicyDialog();
+      return true;
+    }
+    if (this.showReleaseNotesDialog) {
+      this.closeReleaseNotesDialog();
       return true;
     }
     if (this.showMyShapesDialog) {
@@ -2176,7 +2702,10 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
       || this.showStatisticsDialog
       || this.showAccountDialog
       || this.showMyShapesDialog
+      || this.showSupportPaymentDialog
+      || this.showSupportRequestDialog
       || this.showPrivacyPolicyDialog
+      || this.showReleaseNotesDialog
       || this.showCaptureDialog
       || this.showDuplicateDialog
       || this.showStableDialog
@@ -2541,13 +3070,6 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
     return `${width}x${height}`;
   }
 
-  private getDonateUrl() {
-    const apiBase = this.auth.getBackendApiBase();
-    if (apiBase.endsWith('/api')) {
-      return `${apiBase.slice(0, -4)}/donate`;
-    }
-    return `${apiBase.replace(/\/+$/, '')}/donate`;
-  }
 }
 
 function computeLine(x0: number, y0: number, x1: number, y1: number): [number, number][] {
@@ -2738,3 +3260,4 @@ function computeOvalFromBounds(x0: number, y0: number, x1: number, y1: number): 
   }
   return unique;
 }
+

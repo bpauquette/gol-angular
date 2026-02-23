@@ -21,7 +21,51 @@ interface CheckEmailResponse {
 
 interface MeResponse {
   email?: string;
-  hasDonated?: boolean;
+  hasSupportAccess?: boolean;
+}
+
+interface AccountDeletionStatusResponse {
+  deletionScheduled?: boolean;
+  deletionDate?: string | null;
+  daysRemaining?: number | null;
+  error?: string;
+}
+
+interface ScheduleDeletionResponse {
+  success?: boolean;
+  deletionDate?: string;
+  gracePeriodDays?: number;
+  error?: string;
+}
+
+interface CancelDeletionResponse {
+  success?: boolean;
+  error?: string;
+}
+
+interface SupportRequestResponse {
+  ok?: boolean;
+  requestId?: string;
+  requestedAt?: string;
+  error?: string;
+}
+
+interface PaymentConfigResponse {
+  paypal?: {
+    enabled?: boolean;
+    clientId?: string | null;
+  };
+  stripe?: {
+    enabled?: boolean;
+    publishableKey?: string | null;
+  };
+}
+
+interface RecordPayPalSupportResponse {
+  success?: boolean;
+  message?: string;
+  emailReceiptSent?: boolean;
+  error?: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -32,8 +76,8 @@ export class AuthService {
   private emailSubject = new BehaviorSubject<string | null>(null);
   readonly email$ = this.emailSubject.asObservable();
 
-  private hasDonatedSubject = new BehaviorSubject<boolean>(false);
-  readonly hasDonated$ = this.hasDonatedSubject.asObservable();
+  private hasSupportAccessSubject = new BehaviorSubject<boolean>(false);
+  readonly hasSupportAccess$ = this.hasSupportAccessSubject.asObservable();
 
   private backendBase?: string;
 
@@ -44,7 +88,7 @@ export class AuthService {
     if (storedToken && !this.isTokenExpired(storedToken)) {
       this.tokenSubject.next(storedToken);
       this.emailSubject.next(storedEmail);
-      // Populate hasDonated/email from backend when possible (non-blocking).
+      // Populate hasSupportAccess/email from backend when possible (non-blocking).
       queueMicrotask(() => void this.refreshMe());
     } else {
       sessionStorage.removeItem('authToken');
@@ -87,6 +131,11 @@ export class AuthService {
     return base.endsWith('/api') ? `${base}/auth` : `${base}/api/auth`;
   }
 
+  getPaymentsApiBase(): string {
+    const base = this.getBackendApiBase();
+    return base.endsWith('/api') ? base : `${base}/api`;
+  }
+
   async login(email: string, password: string) {
     const normalizedEmail = (email || '').trim();
     const res = await this.postAuth<LoginResponse>('/login', { email: normalizedEmail, password });
@@ -123,7 +172,7 @@ export class AuthService {
   logout() {
     this.tokenSubject.next(null);
     this.emailSubject.next(null);
-    this.hasDonatedSubject.next(false);
+    this.hasSupportAccessSubject.next(false);
     sessionStorage.removeItem('authToken');
     sessionStorage.removeItem('authEmail');
   }
@@ -142,7 +191,7 @@ export class AuthService {
         'Cache-Control': 'no-cache'
       });
       const res = await firstValueFrom(this.http.get<MeResponse>(url, { headers }));
-      if (typeof res?.hasDonated === 'boolean') this.hasDonatedSubject.next(res.hasDonated);
+      if (typeof res?.hasSupportAccess === 'boolean') this.hasSupportAccessSubject.next(res.hasSupportAccess);
       if (typeof res?.email === 'string' && res.email.trim()) {
         this.emailSubject.next(res.email.trim());
         sessionStorage.setItem('authEmail', res.email.trim());
@@ -173,6 +222,123 @@ export class AuthService {
 
   getLastEmailRegistered(): boolean {
     return localStorage.getItem('emailExists') === 'true';
+  }
+
+  async getAccountDeletionStatus(): Promise<AccountDeletionStatusResponse> {
+    const token = this.requireValidToken();
+    const url = `${this.getAuthApiBase()}/account/status`;
+    try {
+      return await firstValueFrom(this.http.get<AccountDeletionStatusResponse>(url, { headers: this.authHeaders(token) }));
+    } catch (err: any) {
+      const serverMsg = err?.error?.error || err?.message || 'Failed to get account status';
+      throw new Error(serverMsg);
+    }
+  }
+
+  async exportAccountData(): Promise<any> {
+    const token = this.requireValidToken();
+    const url = `${this.getAuthApiBase()}/account/export`;
+    try {
+      return await firstValueFrom(this.http.get<any>(url, { headers: this.authHeaders(token) }));
+    } catch (err: any) {
+      const serverMsg = err?.error?.error || err?.message || 'Failed to export account data';
+      throw new Error(serverMsg);
+    }
+  }
+
+  async scheduleAccountDeletion(gracePeriodDays = 30): Promise<ScheduleDeletionResponse> {
+    const token = this.requireValidToken();
+    const url = `${this.getAuthApiBase()}/account`;
+    try {
+      return await firstValueFrom(
+        this.http.request<ScheduleDeletionResponse>('DELETE', url, {
+          headers: this.authHeaders(token),
+          body: { gracePeriodDays }
+        })
+      );
+    } catch (err: any) {
+      const serverMsg = err?.error?.error || err?.message || 'Failed to schedule account deletion';
+      throw new Error(serverMsg);
+    }
+  }
+
+  async cancelAccountDeletion(): Promise<CancelDeletionResponse> {
+    const token = this.requireValidToken();
+    const url = `${this.getAuthApiBase()}/account/cancel-deletion`;
+    try {
+      return await firstValueFrom(
+        this.http.post<CancelDeletionResponse>(url, {}, { headers: this.authHeaders(token) })
+      );
+    } catch (err: any) {
+      const serverMsg = err?.error?.error || err?.message || 'Failed to cancel account deletion';
+      throw new Error(serverMsg);
+    }
+  }
+
+  async submitSupportRequest(payload: { contactInfo: string; requestText: string }): Promise<SupportRequestResponse> {
+    const url = `${this.getAuthApiBase()}/requestsupport`;
+    const token = this.tokenSubject.value || sessionStorage.getItem('authToken');
+    const headersObj: Record<string, string> = {
+      'Content-Type': 'application/json'
+    };
+    if (token && !this.isTokenExpired(token)) {
+      headersObj.Authorization = `Bearer ${token}`;
+    }
+    try {
+      return await firstValueFrom(this.http.post<SupportRequestResponse>(
+        url,
+        {
+          contactInfo: String(payload?.contactInfo || '').trim(),
+          requestText: String(payload?.requestText || '').trim()
+        },
+        { headers: new HttpHeaders(headersObj) }
+      ));
+    } catch (err: any) {
+      const serverMsg = err?.error?.error || err?.message || 'Failed to submit support request';
+      throw new Error(serverMsg);
+    }
+  }
+
+  async getPaymentConfig(): Promise<PaymentConfigResponse> {
+    const url = `${this.getPaymentsApiBase()}/config/payments`;
+    try {
+      return await firstValueFrom(this.http.get<PaymentConfigResponse>(url));
+    } catch (err: any) {
+      const serverMsg = err?.error?.error || err?.message || 'Failed to load payment configuration';
+      throw new Error(serverMsg);
+    }
+  }
+
+  async recordPayPalSupportPayment(payload: {
+    transactionId: string;
+    email: string;
+    amount: number;
+    currency: string;
+  }): Promise<RecordPayPalSupportResponse> {
+    const url = `${this.getPaymentsApiBase()}/payments/paypal/record`;
+    const token = this.tokenSubject.value || sessionStorage.getItem('authToken');
+    const headersObj: Record<string, string> = {
+      'Content-Type': 'application/json'
+    };
+    if (token && !this.isTokenExpired(token)) {
+      headersObj.Authorization = `Bearer ${token}`;
+    }
+
+    try {
+      return await firstValueFrom(this.http.post<RecordPayPalSupportResponse>(
+        url,
+        {
+          transactionId: String(payload?.transactionId || '').trim(),
+          email: String(payload?.email || '').trim(),
+          amount: Number(payload?.amount) || 10,
+          currency: String(payload?.currency || 'USD').toUpperCase()
+        },
+        { headers: new HttpHeaders(headersObj) }
+      ));
+    } catch (err: any) {
+      const serverMsg = err?.error?.error || err?.message || 'Failed to record PayPal support payment';
+      throw new Error(serverMsg);
+    }
   }
 
   private setSession(email: string, token: string) {
@@ -224,6 +390,23 @@ export class AuthService {
     const json = atob(padded);
     return JSON.parse(json);
   }
+
+  private requireValidToken(): string {
+    const token = this.tokenSubject.value || sessionStorage.getItem('authToken');
+    if (!token || this.isTokenExpired(token)) {
+      this.logout();
+      throw new Error('You must be logged in');
+    }
+    return token;
+  }
+
+  private authHeaders(token: string) {
+    return new HttpHeaders({
+      Authorization: `Bearer ${token}`,
+      'Cache-Control': 'no-cache'
+    });
+  }
 }
 
 export type { AuthMode };
+

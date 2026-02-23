@@ -10,6 +10,7 @@ export interface GlobalShortcutBindings {
   openHelp?: () => void;
   openScript?: () => void;
   openShapePalette?: () => void;
+  toggleChrome?: () => void;
   toggleOptions?: () => void;
   zoomIn?: () => void;
   zoomOut?: () => void;
@@ -73,6 +74,12 @@ export class GlobalShortcutsService {
     }
 
     if (key === 'h') {
+      bindings.toggleChrome?.();
+      event.preventDefault();
+      return;
+    }
+
+    if (key === 'o') {
       bindings.toggleOptions?.();
       event.preventDefault();
       return;
@@ -115,15 +122,16 @@ export class GlobalShortcutsService {
     }
 
     // Tool hotkeys
-    if (key === '1') bindings.setTool?.('draw');
-    else if (key === '2') bindings.setTool?.('erase');
-    else if (key === '3') bindings.setTool?.('line');
-    else if (key === '4') bindings.setTool?.('rect');
-    else if (key === '5') bindings.setTool?.('circle');
-    else if (key === '6') bindings.setTool?.('randomRect');
-    else if (key === '7') bindings.setTool?.('capture');
-    else if (key === '8') bindings.setTool?.('shapes');
-    else if (key === '9') bindings.setTool?.('toggle');
+    if (key === '1') bindings.setTool?.('toggle');
+    else if (key === '2') bindings.setTool?.('draw');
+    else if (key === '3') bindings.setTool?.('erase');
+    else if (key === '4') bindings.setTool?.('line');
+    else if (key === '5') bindings.setTool?.('rect');
+    else if (key === '6') bindings.setTool?.('square');
+    else if (key === '7') bindings.setTool?.('circle');
+    else if (key === '8') bindings.setTool?.('oval');
+    else if (key === '9') bindings.setTool?.('randomRect');
+    else if (key === '0') bindings.setTool?.('capture');
     else return;
 
     event.preventDefault();

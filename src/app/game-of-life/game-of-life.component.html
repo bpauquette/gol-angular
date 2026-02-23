@@ -2,6 +2,7 @@
   class="gol-root"
   [class.ios-mitigated]="isIphoneMitigation"
   [class.phone-controls]="isPhoneClient"
+  [class.chrome-hidden]="!showUIChrome"
   [class.script-locked]="scriptRunning"
   [attr.data-client-platform]="clientPlatform"
 >
@@ -18,15 +19,6 @@
     </div>
 
     <div class="gol-center">
-      <div class="gol-engine-switch" role="group" aria-label="Engine selection">
-        <mat-form-field appearance="outline" class="gol-engine-select-field">
-          <mat-label>Engine</mat-label>
-          <mat-select [value]="engineMode" (selectionChange)="onEngineModeChange($event.value)">
-            <mat-option value="normal">Normal</mat-option>
-            <mat-option value="hashlife">HashLife</mat-option>
-          </mat-select>
-        </mat-form-field>
-      </div>
       <div class="gol-run">
         <button
           mat-icon-button
@@ -45,6 +37,14 @@
         <button mat-icon-button (click)="resetToGenerationZero()" matTooltip="Reset to generation 0" aria-label="Reset to generation zero pattern">
           <mat-icon>restart_alt</mat-icon>
         </button>
+        <button
+          mat-icon-button
+          (click)="toggleChrome()"
+          [matTooltip]="showUIChrome ? 'Enter Focus Mode (H)' : 'Exit Focus Mode (H)'"
+          [attr.aria-label]="showUIChrome ? 'Enter Focus Mode' : 'Exit Focus Mode'"
+        >
+          <mat-icon>{{ showUIChrome ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon>
+        </button>
       </div>
     </div>
 
@@ -60,7 +60,8 @@
       <button mat-icon-button matTooltip="Chart" (click)="openStatisticsDialog()" aria-label="Open statistics"><mat-icon>bar_chart</mat-icon></button>
       <button mat-icon-button matTooltip="Import Shape" (click)="openImportShapeDialog()" aria-label="Open shape import"><mat-icon>cloud_download</mat-icon></button>
       <button mat-icon-button matTooltip="LifeWiki" (click)="openLifeWiki()" aria-label="Open LifeWiki"><mat-icon>language</mat-icon></button>
-      <button mat-icon-button matTooltip="Donate" (click)="openDonate()" aria-label="Open donate page"><mat-icon>volunteer_activism</mat-icon></button>
+      <button mat-icon-button matTooltip="Support Access" (click)="openSupport()" aria-label="Open support checkout"><mat-icon>volunteer_activism</mat-icon></button>
+      <button mat-icon-button matTooltip="Request Support" (click)="openSupportRequestDialog()" aria-label="Open support request form"><mat-icon>support_agent</mat-icon></button>
       <button mat-icon-button matTooltip="Account" [matMenuTriggerFor]="userMenu" aria-label="Open account menu">
         <mat-icon>{{ isLoggedIn ? 'lock' : 'person' }}</mat-icon>
       </button>
@@ -234,9 +235,13 @@
       <mat-icon>language</mat-icon>
       <span>LifeWiki</span>
     </button>
-    <button mat-menu-item (click)="openDonate()">
+    <button mat-menu-item (click)="openSupport()">
       <mat-icon>volunteer_activism</mat-icon>
-      <span>Donate</span>
+      <span>Support Access</span>
+    </button>
+    <button mat-menu-item (click)="openSupportRequestDialog()">
+      <mat-icon>support_agent</mat-icon>
+      <span>Request Support</span>
     </button>
     <button mat-menu-item (click)="openOptions()">
       <mat-icon>settings</mat-icon>
@@ -250,6 +255,10 @@
       <mat-icon>info</mat-icon>
       <span>About</span>
     </button>
+    <button mat-menu-item (click)="openReleaseNotesDialog()">
+      <mat-icon>new_releases</mat-icon>
+      <span>Release Notes</span>
+    </button>
   </mat-menu>
 
   <mat-menu #userMenu="matMenu">
@@ -261,6 +270,14 @@
       <button mat-menu-item (click)="openAuth('register')">
         <mat-icon>person_add</mat-icon>
         <span>Register</span>
+      </button>
+      <button mat-menu-item (click)="openReleaseNotesDialog()">
+        <mat-icon>new_releases</mat-icon>
+        <span>Release Notes</span>
+      </button>
+      <button mat-menu-item (click)="openSupportRequestDialog()">
+        <mat-icon>support_agent</mat-icon>
+        <span>Request Support</span>
       </button>
     </ng-container>
     <ng-template #loggedInMenu>
@@ -276,9 +293,17 @@
         <mat-icon>category</mat-icon>
         <span>My Shapes</span>
       </button>
+      <button mat-menu-item (click)="openReleaseNotesDialog()">
+        <mat-icon>new_releases</mat-icon>
+        <span>Release Notes</span>
+      </button>
       <button mat-menu-item (click)="openPrivacyPolicyDialog()">
         <mat-icon>policy</mat-icon>
         <span>Privacy Policy</span>
+      </button>
+      <button mat-menu-item (click)="openSupportRequestDialog()">
+        <mat-icon>support_agent</mat-icon>
+        <span>Request Support</span>
       </button>
       <button mat-menu-item (click)="logout()">
         <mat-icon>logout</mat-icon>
@@ -366,6 +391,10 @@
     <button mat-menu-item (click)="openHelpDialog()">
       <mat-icon>help</mat-icon>
       <span>Help</span>
+    </button>
+    <button mat-menu-item (click)="openReleaseNotesDialog()">
+      <mat-icon>new_releases</mat-icon>
+      <span>Release Notes</span>
     </button>
   </mat-menu>
 
@@ -659,6 +688,32 @@
             >
               I acknowledge.
             </mat-checkbox>
+
+            <div class="gol-ada-onboarding-extra">
+              <section class="gol-ada-onboarding-card">
+                <h3>Community Features</h3>
+                <p>
+                  <strong>Free to use:</strong> Run simulations, explore patterns, and use accessibility safety features.
+                </p>
+                <p>
+                  <strong>One-time lifetime support membership ($10):</strong>
+                </p>
+                <ul>
+                  <li>Save grids and patterns</li>
+                  <li>Publish shapes to the community</li>
+                  <li>Support ongoing development</li>
+                </ul>
+              </section>
+
+              <section class="gol-ada-onboarding-card">
+                <h3>Quick Start</h3>
+                <p><strong>1. Support access ($10 one-time lifetime membership):</strong> Click heart icon, complete checkout, confirm email.</p>
+                <p><strong>2. Create account:</strong> Click user icon, register, then sign in.</p>
+                <p class="gol-ada-onboarding-help">
+                  Need help with this application? Use Help (?). For external Conway pattern references, visit LifeWiki.
+                </p>
+              </section>
+            </div>
           </div>
           <div class="gol-dialog-actions">
             <button mat-raised-button color="primary" [disabled]="!adaCompliance && !adaRiskAcknowledged" (click)="closeFirstLoadWarning()">
@@ -721,7 +776,8 @@
                 <li>Draw tools apply edits on mouse release, then sync into the current run loop.</li>
                 <li>Use mouse wheel to zoom in/out on the cursor point.</li>
                 <li>Pan with Shift + Drag, Middle Mouse Drag, Right Mouse Drag, or Arrow keys.</li>
-                <li>HashLife mode advances in jumps for speed and renders checkpoints.</li>
+                <li>Reset to generation 0 restores the original starting pattern and resets the generation counter.</li>
+                <li>HashLife mode is for big forward jumps when you want faster long-run exploration.</li>
               </ul>
             </section>
 
@@ -733,10 +789,37 @@
                 <li><strong>C</strong> Clear grid</li>
                 <li><strong>K</strong> Script playground</li>
                 <li><strong>P</strong> Open shape palette</li>
-                <li><strong>H</strong> Toggle options panel</li>
+                <li><strong>H</strong> Toggle Focus Mode (minimal run bar + grid)</li>
+                <li><strong>O</strong> Toggle options panel</li>
                 <li><strong>+</strong> / <strong>-</strong> Zoom in/out</li>
                 <li><strong>Arrow Keys</strong> Pan viewport (hold Shift for larger stride)</li>
-                <li><strong>1-9</strong> Tool quick select</li>
+                <li><strong>1-0</strong> Tool quick select (toolbar order)</li>
+              </ul>
+            </section>
+
+            <section class="gol-help-card">
+              <h3>Toolbar Tool Order (Left to Right)</h3>
+              <ul>
+                <li><strong>1</strong> Select/Toggle</li>
+                <li><strong>2</strong> Draw</li>
+                <li><strong>3</strong> Erase</li>
+                <li><strong>4</strong> Line</li>
+                <li><strong>5</strong> Rectangle</li>
+                <li><strong>6</strong> Square</li>
+                <li><strong>7</strong> Circle</li>
+                <li><strong>8</strong> Oval</li>
+                <li><strong>9</strong> Random Fill</li>
+                <li><strong>0</strong> Capture</li>
+                <li>Shapes (toolbar button)</li>
+              </ul>
+            </section>
+
+            <section class="gol-help-card">
+              <h3>Engine Modes (Simple)</h3>
+              <ul>
+                <li><strong>Normal</strong>: best for drawing, stepping, and close-up edits.</li>
+                <li><strong>HashLife</strong>: best for jumping far ahead quickly to see long-term outcomes.</li>
+                <li><strong>Switch engine</strong>: open Options, then use <em>Advanced → Engine mode</em>.</li>
               </ul>
             </section>
 
@@ -758,6 +841,24 @@
                 <li>If the scene feels busy, reduce zoom and pause before large edits.</li>
               </ul>
             </section>
+
+            <section class="gol-help-card">
+              <h3>Resources + Attribution</h3>
+              <p>
+                This application includes patterns from the Life Lexicon, Release 29 (July 2018), compiled by Stephen A. Silver and updated by Dave Greene and David Bell.
+              </p>
+              <p>
+                © Stephen A. Silver, 1997–2018. Used under the Creative Commons Attribution-ShareAlike 3.0 license (CC BY-SA 3.0).
+              </p>
+              <p>
+                Major contributors include John Conway, Dean Hickerson, David Bell, Bill Gosper, Bob Wainwright, Noam Elkies, Nathan Thompson, Harold McIntosh, Dan Hoey, Alan Hensel, and the Conway's Game of Life community.
+              </p>
+              <div class="gol-help-link-list">
+                <a href="https://conwaylife.com/wiki/Main_Page" target="_blank" rel="noopener noreferrer">LifeWiki (external resource)</a>
+                <a href="http://conwaylife.com/ref/lexicon/" target="_blank" rel="noopener noreferrer">Life Lexicon Home</a>
+                <a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noopener noreferrer">CC BY-SA 3.0 License</a>
+              </div>
+            </section>
           </div>
           <div class="gol-dialog-actions">
             <button mat-raised-button color="primary" (click)="closeHelpDialog()">Close</button>
@@ -771,10 +872,28 @@
           <div class="gol-dialog-body">
             <p>This app is an interactive Conway's Game of Life workspace with normal and HashLife-style exploration modes.</p>
             <p>Use the script playground, shape import, and observatory controls to experiment quickly.</p>
+            <div class="gol-about-section">
+              <h3>Pattern Catalog Attribution</h3>
+              <p>
+                This application includes patterns from the Life Lexicon, Release 29 (July 2018), compiled by Stephen A. Silver and updated by Dave Greene and David Bell.
+              </p>
+              <p>
+                © Stephen A. Silver, 1997–2018. Used under the Creative Commons Attribution-ShareAlike 3.0 license (CC BY-SA 3.0).
+              </p>
+              <p>
+                Major contributors include John Conway, Dean Hickerson, David Bell, Bill Gosper, Bob Wainwright, Noam Elkies, Nathan Thompson, Harold McIntosh, Dan Hoey, Alan Hensel, and the Conway's Game of Life community.
+              </p>
+              <div class="gol-help-link-list">
+                <a href="http://conwaylife.com/ref/lexicon/" target="_blank" rel="noopener noreferrer">Life Lexicon Home</a>
+                <a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noopener noreferrer">CC BY-SA 3.0 License</a>
+              </div>
+            </div>
           </div>
           <div class="gol-dialog-actions">
             <button mat-stroked-button (click)="openLifeWiki()">Open LifeWiki</button>
-            <button mat-button (click)="openDonate()">Donate</button>
+            <button mat-button (click)="openSupport()">Support Access</button>
+            <button mat-stroked-button (click)="openSupportRequestDialog()">Request Support</button>
+            <button mat-stroked-button (click)="openReleaseNotesDialog()">Release Notes</button>
             <button mat-raised-button color="primary" (click)="closeAboutDialog()">Close</button>
           </div>
         </div>
@@ -976,15 +1095,136 @@
           <div class="gol-dialog-body">
             <div class="gol-dialog-chip-row">
               <span class="gol-chip">{{ authEmail || 'Unknown email' }}</span>
-              <span class="gol-chip">{{ hasDonated ? 'Supporter' : 'Standard account' }}</span>
+              <span class="gol-chip">{{ hasSupportAccess ? 'Supporter' : 'Standard account' }}</span>
             </div>
-            <p>You can manage your private/public shapes and account-related actions here.</p>
+            <p>You can manage your data and account lifecycle directly from this dialog.</p>
+
+            <div class="gol-dialog-error" *ngIf="accountDialogError">{{ accountDialogError }}</div>
+            <div class="gol-dialog-success" *ngIf="accountDialogSuccess">{{ accountDialogSuccess }}</div>
+
+            <div class="gol-account-status" *ngIf="accountDeletionScheduled">
+              <strong>Deletion scheduled:</strong>
+              <span>
+                {{ accountDeletionDate ? (accountDeletionDate | date:'fullDate') : 'Pending date' }}
+              </span>
+              <span *ngIf="accountDeletionDaysRemaining !== null">
+                ({{ accountDeletionDaysRemaining }} day{{ accountDeletionDaysRemaining === 1 ? '' : 's' }} remaining)
+              </span>
+            </div>
+
+            <div class="gol-account-status" *ngIf="!accountDeletionScheduled">
+              <strong>Account status:</strong>
+              <span>Active</span>
+            </div>
           </div>
           <div class="gol-dialog-actions">
             <button mat-stroked-button (click)="openMyShapesDialog()">My Shapes</button>
+            <button mat-stroked-button (click)="downloadMyData()" [disabled]="accountDialogBusy">Download My Data</button>
+            <button
+              mat-stroked-button
+              color="warn"
+              *ngIf="!accountDeletionScheduled"
+              (click)="showAccountDeleteConfirm = !showAccountDeleteConfirm"
+              [disabled]="accountDialogBusy"
+            >
+              {{ showAccountDeleteConfirm ? 'Keep Account' : 'Delete My Account' }}
+            </button>
+            <button
+              mat-stroked-button
+              color="primary"
+              *ngIf="accountDeletionScheduled"
+              (click)="cancelMyAccountDeletion()"
+              [disabled]="accountDialogBusy"
+            >
+              Cancel Deletion
+            </button>
+            <button mat-stroked-button (click)="openReleaseNotesDialog()">Release Notes</button>
             <button mat-stroked-button (click)="openPrivacyPolicyDialog()">Privacy Policy</button>
             <button mat-button (click)="logout()">Logout</button>
             <button mat-raised-button color="primary" (click)="closeAccountDialog()">Close</button>
+          </div>
+          <div class="gol-dialog-actions" *ngIf="showAccountDeleteConfirm && !accountDeletionScheduled">
+            <span class="gol-dialog-caption">Deletion uses a 30-day grace period so you can cancel if needed.</span>
+            <button mat-raised-button color="warn" (click)="scheduleMyAccountDeletion()" [disabled]="accountDialogBusy">
+              Confirm Delete My Account
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="gol-dialog-backdrop" *ngIf="showReleaseNotesDialog">
+        <div class="gol-dialog" role="dialog" aria-modal="true" aria-label="Release Notes" tabindex="-1">
+          <h2>Release Notes</h2>
+          <div class="gol-dialog-body">
+            <pre class="gol-release-notes-text">{{ releaseNotesText }}</pre>
+          </div>
+          <div class="gol-dialog-actions">
+            <button mat-raised-button color="primary" (click)="closeReleaseNotesDialog()">Close</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="gol-dialog-backdrop" *ngIf="showSupportPaymentDialog">
+        <div class="gol-dialog" role="dialog" aria-modal="true" aria-label="Support Access Checkout" tabindex="-1">
+          <h2>Support Access</h2>
+          <div class="gol-dialog-body">
+            <p class="gol-dialog-caption">One-time lifetime membership: $10 USD.</p>
+            <p class="gol-dialog-caption">Account: {{ authEmail || 'N/A' }}</p>
+            <div class="gol-dialog-error" *ngIf="supportPaymentError">{{ supportPaymentError }}</div>
+            <div class="gol-dialog-success" *ngIf="supportPaymentSuccess">{{ supportPaymentSuccess }}</div>
+            <div class="gol-load-loading" *ngIf="supportPaymentBusy && !supportPaymentSuccess">
+              Preparing secure PayPal checkout...
+            </div>
+            <div
+              id="gol-angular-paypal-button-container"
+              *ngIf="supportPaymentConfigLoaded && supportPaymentPayPalEnabled"
+            ></div>
+          </div>
+          <div class="gol-dialog-actions">
+            <button mat-button (click)="closeSupportPaymentDialog()" [disabled]="supportPaymentBusy">Close</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="gol-dialog-backdrop" *ngIf="showSupportRequestDialog">
+        <div class="gol-dialog" role="dialog" aria-modal="true" aria-label="Request Support" tabindex="-1">
+          <h2>Request Support</h2>
+          <div class="gol-dialog-body">
+            <p class="gol-dialog-caption">User captured: {{ authEmail || 'N/A' }}</p>
+            <div class="gol-dialog-error" *ngIf="supportRequestError">{{ supportRequestError }}</div>
+            <div class="gol-dialog-success" *ngIf="supportRequestSuccess">{{ supportRequestSuccess }}</div>
+            <mat-form-field appearance="fill" class="gol-dialog-field">
+              <mat-label>Contact Info</mat-label>
+              <input
+                matInput
+                [(ngModel)]="supportRequestContactInfo"
+                maxlength="320"
+                required
+                [disabled]="supportRequestBusy"
+              >
+            </mat-form-field>
+            <mat-form-field appearance="fill" class="gol-dialog-field">
+              <mat-label>Support Request</mat-label>
+              <textarea
+                matInput
+                rows="6"
+                [(ngModel)]="supportRequestText"
+                maxlength="5000"
+                required
+                [disabled]="supportRequestBusy"
+              ></textarea>
+            </mat-form-field>
+          </div>
+          <div class="gol-dialog-actions">
+            <button mat-button (click)="closeSupportRequestDialog()" [disabled]="supportRequestBusy">Close</button>
+            <button
+              mat-raised-button
+              color="primary"
+              (click)="submitSupportRequest()"
+              [disabled]="supportRequestBusy || !supportRequestContactInfo.trim() || !supportRequestText.trim()"
+            >
+              {{ supportRequestBusy ? 'Submitting...' : 'Request Support' }}
+            </button>
           </div>
         </div>
       </div>
@@ -1030,9 +1270,7 @@
         <div class="gol-dialog" role="dialog" aria-modal="true" aria-label="Privacy Policy" tabindex="-1">
           <h2>Privacy Policy</h2>
           <div class="gol-dialog-body">
-            <p>Your account stores profile identity and shapes/scripts you choose to save.</p>
-            <p>Private items are visible only to you; public items are visible to all users.</p>
-            <p>Authentication tokens are stored in session storage for the active browser session.</p>
+            <pre class="gol-privacy-policy-text">{{ privacyPolicyText }}</pre>
           </div>
           <div class="gol-dialog-actions">
             <button mat-raised-button color="primary" (click)="closePrivacyPolicyDialog()">Close</button>
@@ -1113,4 +1351,5 @@
     </mat-sidenav-content>
   </mat-sidenav-container>
 </div>
+
 

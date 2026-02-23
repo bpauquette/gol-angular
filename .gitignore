@@ -25,3 +25,19 @@ Thumbs.db
 
 # Scanner workspace
 .scannerwork/
+
+# Secret environment files (never commit)
+.env
+.env.*
+**/.env
+**/.env.*
+*.env
+**/*.env
+
+# Allow only redacted templates
+!.env.example
+!.env.*.example
+!**/.env.example
+!**/.env.*.example
+!*.env.example
+!**/*.env.example

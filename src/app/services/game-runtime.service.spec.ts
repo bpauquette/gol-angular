@@ -1,17 +1,25 @@
 import { BehaviorSubject, firstValueFrom } from 'rxjs';
 import { take } from 'rxjs/operators';
-import { GameRuntimeService } from './game-runtime.service';
+import {
+  GameRuntimeService,
+  buildCellStateHash,
+  classifyStablePatternType,
+  detectStatePeriod
+} from './game-runtime.service';
 
 const ADA_ONBOARDING_SEEN_STORAGE_KEY = 'gol.adaOnboardingSeen.v1';
 
 function createRuntimeHarness(initialAdaCompliance = true) {
+  const engineMode$ = new BehaviorSubject<any>('normal');
   const model = {
     generation$: new BehaviorSubject<number>(0),
-    engineMode$: new BehaviorSubject<any>('normal'),
+    engineMode$,
     generationBatchSize$: new BehaviorSubject<number>(16),
     getLiveCells: () => [],
-    getEngineMode: () => 'normal',
-    getGenerationBatchSize: () => 16
+    getEngineMode: () => engineMode$.value,
+    getGenerationBatchSize: () => 16,
+    setEngineMode: (mode: any) => engineMode$.next(mode === 'hashlife' ? 'hashlife' : 'normal'),
+    setLiveCells: () => {}
   };
 
   const adaCompliance$ = new BehaviorSubject<boolean>(initialAdaCompliance);
@@ -21,9 +29,11 @@ function createRuntimeHarness(initialAdaCompliance = true) {
     shutdown: () => {}
   };
 
+  const simulationLoopStart = jasmine.createSpy('simulationLoop.start');
+  const simulationLoopStop = jasmine.createSpy('simulationLoop.stop');
   const simulationLoop = {
-    start: () => {},
-    stop: () => {}
+    start: simulationLoopStart,
+    stop: simulationLoopStop
   };
 
   const observatory = {
@@ -64,7 +74,7 @@ function createRuntimeHarness(initialAdaCompliance = true) {
     ngZone as any
   );
 
-  return { service, adaCompliance$ };
+  return { service, adaCompliance$, simulationLoopStart, simulationLoopStop, engineMode$ };
 }
 
 function createRuntime() {
@@ -211,8 +221,8 @@ describe('GameRuntimeService ADA state synchronization', () => {
 
     expect(detect).toBeFalse();
     expect(maxChart).toBe(5000);
-    expect(popWindow).toBe(50);
-    expect(popTolerance).toBe(0);
+    expect(popWindow).toBe(30);
+    expect(popTolerance).toBe(3);
     expect(caps).toEqual({
       maxFPS: 60,
       maxGPS: 30,
@@ -253,5 +263,78 @@ describe('GameRuntimeService ADA state synchronization', () => {
 
     sub.unsubscribe();
     service.ngOnDestroy();
+  });
+
+  it('enforces 2 FPS/GPS timing in ADA mode when engine mode is normal', () => {
+    const { service, simulationLoopStart } = createRuntimeHarness(true);
+
+    // Simulate drift from out-of-band state writes; runtime timing should still enforce ADA normal-mode caps.
+    (service as any).performanceCapsSubject.next({
+      maxFPS: 120,
+      maxGPS: 60,
+      enableFPSCap: false,
+      enableGPSCap: false
+    });
+
+    service.start();
+
+    expect(simulationLoopStart).toHaveBeenCalled();
+    const loopConfig = simulationLoopStart.calls.mostRecent().args[0];
+    expect(loopConfig.getRenderIntervalMs()).toBe(500);
+    expect(loopConfig.getGenerationIntervalMs()).toBe(500);
+
+    service.ngOnDestroy();
+  });
+});
+
+describe('GameRuntimeService stable pattern classification helpers', () => {
+  it('classifies still life when period is 1', () => {
+    const patternType = classifyStablePatternType({
+      period: 1,
+      popChanging: false,
+      populationCount: 4
+    });
+
+    expect(patternType).toBe('Still Life');
+  });
+
+  it('classifies oscillators with explicit period label', () => {
+    const patternType = classifyStablePatternType({
+      period: 3,
+      popChanging: true,
+      populationCount: 6
+    });
+
+    expect(patternType).toBe('Oscillator (Period 3)');
+  });
+
+  it('returns unclassified stable population when period is unknown', () => {
+    const patternType = classifyStablePatternType({
+      period: 0,
+      popChanging: false,
+      populationCount: 5
+    });
+
+    expect(patternType).toBe('Stable Population (Unclassified)');
+  });
+
+  it('hashes cell states deterministically regardless of order', () => {
+    const hashA = buildCellStateHash([{ x: 2, y: 3 }, { x: 1, y: 1 }]);
+    const hashB = buildCellStateHash([{ x: 1, y: 1 }, { x: 2, y: 3 }]);
+
+    expect(hashA).toBe('1,1;2,3');
+    expect(hashB).toBe(hashA);
+  });
+
+  it('detects period 1 for a repeated still-life hash sequence', () => {
+    const period = detectStatePeriod(['A', 'A', 'A', 'A', 'A', 'A'], 10);
+
+    expect(period).toBe(1);
+  });
+
+  it('detects period 2 for repeating oscillator hashes', () => {
+    const period = detectStatePeriod(['A', 'B', 'A', 'B', 'A', 'B', 'A', 'B'], 10);
+
+    expect(period).toBe(2);
   });
 });

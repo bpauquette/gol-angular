@@ -54,6 +54,19 @@
     </div>
 
     <mat-divider></mat-divider>
+    <h2>Advanced</h2>
+    <mat-form-field appearance="fill">
+      <mat-label>Engine mode</mat-label>
+      <mat-select [value]="engineMode" (selectionChange)="onEngineModeChange($event.value)">
+        <mat-option value="normal">Normal</mat-option>
+        <mat-option value="hashlife">HashLife</mat-option>
+      </mat-select>
+    </mat-form-field>
+    <div class="gol-options-hint">
+      Normal is best for step-by-step editing. HashLife is best for large generation jumps and long-run exploration.
+    </div>
+
+    <mat-divider></mat-divider>
     <h2>Performance Settings</h2>
     <mat-checkbox [checked]="performanceCaps.enableFPSCap" [disabled]="adaCompliance" (change)="toggleEnableFPSCap($event)">
       Enable FPS Cap
@@ -115,5 +128,8 @@
         (input)="updatePopTolerance($event.target.value)"
       >
     </mat-form-field>
+    <div class="gol-options-hint">
+      Window and tolerance work together to reduce noisy false positives before stable-period classification is shown.
+    </div>
   </mat-card-content>
 </mat-card>

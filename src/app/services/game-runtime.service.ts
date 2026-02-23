@@ -52,6 +52,8 @@ export class GameRuntimeService implements OnDestroy {
   private readonly minCheckpointGenerationDelta = 512;
   private readonly maxCheckpointCells = 50000;
   private readonly debugLogsEnabled = true;
+  private stateHashHistory: string[] = [];
+  private readonly maxStateHashHistory = 240;
 
   private liveCellsSubject = new BehaviorSubject<Cell[]>([]);
   liveCells$ = this.liveCellsSubject.asObservable();
@@ -133,10 +135,10 @@ export class GameRuntimeService implements OnDestroy {
   private popHistorySubject = new BehaviorSubject<number[]>([]);
   popHistory$ = this.popHistorySubject.asObservable();
 
-  private popWindowSizeSubject = new BehaviorSubject<number>(50);
+  private popWindowSizeSubject = new BehaviorSubject<number>(30);
   popWindowSize$ = this.popWindowSizeSubject.asObservable();
 
-  private popToleranceSubject = new BehaviorSubject<number>(0);
+  private popToleranceSubject = new BehaviorSubject<number>(3);
   popTolerance$ = this.popToleranceSubject.asObservable();
 
   private maxChartGenerationsSubject = new BehaviorSubject<number>(5000);
@@ -167,6 +169,7 @@ export class GameRuntimeService implements OnDestroy {
     this.generationBatchSizeSubject.next(this.model.getGenerationBatchSize());
     this.hashlifeRunModeSubject.next(this.observatory.getRunMode());
     this.hashlifeSkipExponentSubject.next(this.observatory.getSkipExponent());
+    this.resetStateHashHistory(this.liveCellsSubject.value);
 
     this.subscriptions.add(
       this.model.generation$.subscribe(gen => {
@@ -372,6 +375,7 @@ export class GameRuntimeService implements OnDestroy {
 
   syncNow(resetPopulationHistory: boolean = false) {
     this.syncLiveCells();
+    this.resetStateHashHistory(this.liveCellsSubject.value);
     if (this.engineModeSubject.value === 'hashlife') {
       this.maybeCaptureCheckpoint(this.generationSubject.value, this.liveCellsSubject.value, resetPopulationHistory);
     }
@@ -394,6 +398,7 @@ export class GameRuntimeService implements OnDestroy {
     this.model.clear();
     this.syncLiveCells();
     this.popHistorySubject.next([]);
+    this.resetStateHashHistory([]);
     this.checkpointTimeline.clear();
     this.lastCheckpointGeneration = 0;
     this.lastCheckpointAtMs = 0;
@@ -474,8 +479,8 @@ export class GameRuntimeService implements OnDestroy {
   resetRuntimePreferencesToDefaults() {
     this.detectStablePopulationSubject.next(false);
     this.maxChartGenerationsSubject.next(5000);
-    this.popWindowSizeSubject.next(50);
-    this.popToleranceSubject.next(0);
+    this.popWindowSizeSubject.next(30);
+    this.popToleranceSubject.next(3);
     this.preferredCaps = { ...DEFAULT_CAPS };
 
     if (this.adaComplianceSubject.value) {
@@ -496,7 +501,13 @@ export class GameRuntimeService implements OnDestroy {
   }
 
   setDetectStablePopulation(enabled: boolean) {
-    this.detectStablePopulationSubject.next(!!enabled);
+    const next = !!enabled;
+    this.detectStablePopulationSubject.next(next);
+    if (next) {
+      this.resetStateHashHistory(this.liveCellsSubject.value);
+      return;
+    }
+    this.stateHashHistory = [];
   }
 
   setMaxChartGenerations(value: number) {
@@ -505,7 +516,7 @@ export class GameRuntimeService implements OnDestroy {
   }
 
   setPopWindowSize(value: number) {
-    const next = Math.max(1, Math.min(1000, Math.floor(Number(value) || 50)));
+    const next = Math.max(1, Math.min(1000, Math.floor(Number(value) || 30)));
     this.popWindowSizeSubject.next(next);
   }
 
@@ -625,8 +636,7 @@ export class GameRuntimeService implements OnDestroy {
   }
 
   private getRenderIntervalMs() {
-    const ada = this.adaComplianceSubject.value;
-    if (ada) return 500;
+    if (this.isAdaNormalEngineMode()) return 500;
 
     const engineMode = this.engineModeSubject.value;
     let interval = this.observatory.getRenderIntervalMs(engineMode);
@@ -639,11 +649,17 @@ export class GameRuntimeService implements OnDestroy {
   }
 
   private getGenerationIntervalMs() {
+    if (this.isAdaNormalEngineMode()) return 500;
+
     const caps = this.performanceCapsSubject.value;
     if (caps.enableGPSCap && caps.maxGPS > 0) {
       return 1000 / caps.maxGPS;
     }
     return 0;
+  }
+
+  private isAdaNormalEngineMode() {
+    return this.adaComplianceSubject.value && this.engineModeSubject.value === 'normal';
   }
 
   private async executeStepBatch(generations: number): Promise<LoopStepResult | null> {
@@ -698,22 +714,46 @@ export class GameRuntimeService implements OnDestroy {
     const trimmed = history.length > maxHistory ? history.slice(history.length - maxHistory) : history;
     this.popHistorySubject.next(trimmed);
 
-    if (!this.detectStablePopulationSubject.value) return;
+    if (!this.detectStablePopulationSubject.value) {
+      this.stateHashHistory = [];
+      return;
+    }
+    const generation = this.generationSubject.value;
+    if (nextCount <= 0 || generation <= 0) return;
+
+    this.recordStateHash(this.liveCellsSubject.value);
+    const detectedPeriod = detectStatePeriod(this.stateHashHistory, Math.min(120, this.popWindowSizeSubject.value));
     const { popChanging } = computePopulationChange(
       trimmed,
       this.popWindowSizeSubject.value,
       this.popToleranceSubject.value
     );
-    if (!popChanging && trimmed.length > 3) {
-      const info: StableDetectionInfo = {
-        patternType: 'Stable (Population)',
-        generation: this.generationSubject.value,
-        populationCount: nextCount,
-        period: 1
-      };
-      this.stableDetectionInfoSubject.next(info);
-      this.showStableDialogSubject.next(true);
-      this.pause();
+    if (detectedPeriod <= 0 || popChanging || trimmed.length <= 3) return;
+
+    const info: StableDetectionInfo = {
+      patternType: classifyStablePatternType({
+        period: detectedPeriod,
+        popChanging,
+        populationCount: nextCount
+      }),
+      generation,
+      populationCount: nextCount,
+      period: detectedPeriod
+    };
+    this.stableDetectionInfoSubject.next(info);
+    this.showStableDialogSubject.next(true);
+    this.pause();
+  }
+
+  private resetStateHashHistory(cells: Cell[] = []) {
+    this.stateHashHistory = [];
+    this.recordStateHash(cells);
+  }
+
+  private recordStateHash(cells: Cell[] = []) {
+    this.stateHashHistory.push(buildCellStateHash(cells));
+    if (this.stateHashHistory.length > this.maxStateHashHistory) {
+      this.stateHashHistory = this.stateHashHistory.slice(-this.maxStateHashHistory);
     }
   }
 
@@ -772,6 +812,61 @@ export class GameRuntimeService implements OnDestroy {
       console.error('[GameRuntime] Failed to persist boolean to storage.', { key, value, error });
     }
   }
+}
+
+export function classifyStablePatternType({
+  period = 0,
+  popChanging = false,
+  populationCount = 0
+}: {
+  period?: number;
+  popChanging?: boolean;
+  populationCount?: number;
+}) {
+  const safePeriod = Math.max(0, Math.floor(Number(period) || 0));
+  const safePopulation = Math.max(0, Math.floor(Number(populationCount) || 0));
+
+  if (safePopulation <= 0) return 'Extinct Pattern';
+  if (safePeriod > 1) return `Oscillator (Period ${safePeriod})`;
+  if (safePeriod === 1) return 'Still Life';
+  if (!popChanging) return 'Stable Population (Unclassified)';
+  return 'Stable Pattern';
+}
+
+export function buildCellStateHash(cells: Cell[] = []) {
+  const unique = new Set<string>();
+  for (const cell of cells || []) {
+    const x = Math.floor(Number(cell?.x));
+    const y = Math.floor(Number(cell?.y));
+    if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+    unique.add(`${x},${y}`);
+  }
+  return Array.from(unique).sort().join(';');
+}
+
+export function detectStatePeriod(stateHashHistory: string[] = [], maxPeriod: number = 30) {
+  if (!Array.isArray(stateHashHistory) || stateHashHistory.length < 6) return 0;
+
+  const cap = Math.max(1, Math.floor(Number(maxPeriod) || 1));
+  const effectiveMaxPeriod = Math.min(cap, Math.floor(stateHashHistory.length / 3));
+  for (let period = 1; period <= effectiveMaxPeriod; period += 1) {
+    const cyclesToCheck = Math.floor(stateHashHistory.length / period) - 1;
+    if (cyclesToCheck < 2) continue;
+
+    let matches = true;
+    for (let cycle = 0; cycle < cyclesToCheck; cycle += 1) {
+      const endIndex = stateHashHistory.length - 1 - (cycle * period);
+      const prevIndex = endIndex - period;
+      if (prevIndex < 0 || stateHashHistory[endIndex] !== stateHashHistory[prevIndex]) {
+        matches = false;
+        break;
+      }
+    }
+
+    if (matches) return period;
+  }
+
+  return 0;
 }
 
 function computePopulationChange(history: number[] = [], windowSize: number = 1, tolerance: number = 0) {

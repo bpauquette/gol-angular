@@ -11,10 +11,12 @@ import { SimulationColorSchemeService } from '../services/simulation-color-schem
 
 class RuntimeMock {
   detectStablePopulation$ = new BehaviorSubject<boolean>(false);
+  engineMode$ = new BehaviorSubject<any>('normal');
   performanceCaps$ = new BehaviorSubject({ maxFPS: 60, maxGPS: 30, enableFPSCap: false, enableGPSCap: false });
   maxChartGenerations$ = new BehaviorSubject<number>(5000);
-  popWindowSize$ = new BehaviorSubject<number>(50);
-  popTolerance$ = new BehaviorSubject<number>(0);
+  popWindowSize$ = new BehaviorSubject<number>(30);
+  popTolerance$ = new BehaviorSubject<number>(3);
+  setEngineMode = jasmine.createSpy('setEngineMode');
   setDetectStablePopulation = jasmine.createSpy('setDetectStablePopulation');
   setMaxFPS = jasmine.createSpy('setMaxFPS');
   setMaxGPS = jasmine.createSpy('setMaxGPS');
@@ -100,5 +102,13 @@ describe('OptionsPanelComponent', () => {
 
     expect(runtime.replayFirstLoadWarning).toHaveBeenCalled();
     expect(runtime.setOptionsOpen).toHaveBeenCalledWith(false);
+  });
+
+  it('should delegate engine mode changes to runtime service', () => {
+    component.onEngineModeChange('hashlife');
+    component.onEngineModeChange('normal');
+
+    expect(runtime.setEngineMode).toHaveBeenCalledWith('hashlife');
+    expect(runtime.setEngineMode).toHaveBeenCalledWith('normal');
   });
 });

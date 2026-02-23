@@ -3,6 +3,7 @@ import { Subscription } from 'rxjs';
 import { AdaComplianceService } from '../services/ada-compliance.service';
 import { GameRuntimeService, PerformanceCaps } from '../services/game-runtime.service';
 import { ThemeOption, ThemeService, ThemeId } from '../services/theme.service';
+import { EngineMode } from '../model/game-model.service';
 import {
   SimulationColorScheme,
   SimulationColorSchemeId,
@@ -21,8 +22,9 @@ export class OptionsPanelComponent implements OnInit, OnDestroy {
   detectStablePopulation = false;
   performanceCaps: PerformanceCaps = { maxFPS: 60, maxGPS: 30, enableFPSCap: false, enableGPSCap: false };
   maxChartGenerations = 5000;
-  popWindowSize = 50;
-  popTolerance = 0;
+  popWindowSize = 30;
+  popTolerance = 3;
+  engineMode: EngineMode = 'normal';
   currentTheme: ThemeId = 'dark';
   availableThemes: ThemeOption[] = [];
   currentSimulationColorSchemeId: SimulationColorSchemeId = 'biolife';
@@ -45,6 +47,7 @@ export class OptionsPanelComponent implements OnInit, OnDestroy {
     this.subscriptions.add(this.adaService.adaCompliance$.subscribe(val => this.adaCompliance = val));
     this.subscriptions.add(this.runtime.detectStablePopulation$.subscribe(val => this.detectStablePopulation = val));
     this.subscriptions.add(this.runtime.performanceCaps$.subscribe(val => this.performanceCaps = val));
+    this.subscriptions.add(this.runtime.engineMode$.subscribe(mode => this.engineMode = mode));
     this.subscriptions.add(this.runtime.maxChartGenerations$.subscribe(val => this.maxChartGenerations = val));
     this.subscriptions.add(this.runtime.popWindowSize$.subscribe(val => this.popWindowSize = val));
     this.subscriptions.add(this.runtime.popTolerance$.subscribe(val => this.popTolerance = val));
@@ -92,6 +95,10 @@ export class OptionsPanelComponent implements OnInit, OnDestroy {
 
   updatePopTolerance(value: any) {
     this.runtime.setPopTolerance(Number(value));
+  }
+
+  onEngineModeChange(mode: EngineMode | string) {
+    this.runtime.setEngineMode(mode);
   }
 
   onThemeChange(theme: ThemeId) {
