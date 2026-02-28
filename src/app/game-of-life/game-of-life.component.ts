@@ -1492,7 +1492,11 @@ This privacy policy was published on February 22, 2026, is effective as of Febru
     const wikiUrl = 'https://conwaylife.com/wiki/Main_Page';
     const popup = window.open(wikiUrl, '_blank', 'noopener,noreferrer');
     if (!popup) {
-      window.location.href = wikiUrl;
+      this.snackBar.open(
+        'Unable to open LifeWiki in a new tab. Please allow pop-ups for this site.',
+        'Dismiss',
+        { duration: 5000 }
+      );
     }
   }
 
