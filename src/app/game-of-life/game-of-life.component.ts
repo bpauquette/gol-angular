@@ -263,29 +263,29 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
   showPrivacyPolicyDialog = false;
   showReleaseNotesDialog = false;
   readonly releaseNotesText = `RELEASE NOTES
-Release Tag: gol-angular/v1.0.6
-Compared To: v1.0.5
-Release Date: March 11, 2026
+Release Tag: gol-angular/v1.0.7
+Compared To: v1.0.6
+Release Date: March 12, 2026
 
 COMMIT-BY-COMMIT BREAKDOWN
 
-- [toggle-direction] Updated the left-most toggle tool so left click paints cells alive and right click paints cells dead.
-- [angular-input] Routed mouse button state through the canvas event payload so the toggle tool can distinguish left and right clicks during drags.
-- [pan-conflict] Removed Angular's right-click-to-pan shortcut so right click no longer enters the grab-hand pan mode and block this tool behavior.
-- [release-docs] Updated release-note metadata for the v1.0.6 toggle-direction patch.
+- [shape-palette-mobile] Relaxed fixed heights in the shape palette dialog so the mobile layout can scroll naturally instead of pinning content into cramped viewports.
+- [safe-area-layout] Added safer full-width/full-height handling and bottom safe-area padding for phones when the shape palette dialog is open.
+- [mobile-preview-flow] Removed sticky mobile preview/action sections so the preview pane and buttons stay in the normal flow on smaller screens.
+- [release-docs] Updated release-note metadata for the v1.0.7 mobile shape-palette patch.
 
 WHAT CHANGED SINCE THE LAST RELEASE
 
-- The left-most toggle tool now works as directional paint: left click makes a cell alive and right click makes it dead.
-- Angular no longer hijacks right click to start panning, so the grab-hand behavior does not interfere with editing.
-- The second draw tool remains a standard draw tool and was not changed into a right-click erase tool.
-- Release metadata advanced to gol-angular/v1.0.6.
+- The shape palette dialog behaves better on phones and narrow screens, with less clipping and more natural scrolling.
+- Mobile safe-area spacing is applied more consistently when the palette is presented full-screen.
+- The palette preview/actions now stay in the regular mobile document flow instead of using sticky positioning.
+- Release metadata advanced to gol-angular/v1.0.7.
 
 GITHUB TAG TRACKING
 
 - Releases are tracked with Git tags.
 - Tag format: gol-angular/vMAJOR.MINOR.PATCH
-- Compare releases in GitHub by tag range (for example, v1.0.5...v1.0.6).`;
+- Compare releases in GitHub by tag range (for example, v1.0.6...v1.0.7).`;
   readonly privacyPolicyText = `PRIVACY POLICY
 Published: February 22, 2026
 Last Updated: February 22, 2026

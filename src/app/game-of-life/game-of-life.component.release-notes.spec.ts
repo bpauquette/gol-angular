@@ -36,8 +36,8 @@ describe('GameOfLifeComponent release notes dialog', () => {
   it('includes commit-by-commit release notes metadata', () => {
     const component = createComponent();
 
-    expect(component.releaseNotesText).toContain('Release Tag: gol-angular/v1.0.6');
-    expect(component.releaseNotesText).toContain('Compared To: v1.0.5');
+    expect(component.releaseNotesText).toContain('Release Tag: gol-angular/v1.0.7');
+    expect(component.releaseNotesText).toContain('Compared To: v1.0.6');
     expect(component.releaseNotesText).toContain('COMMIT-BY-COMMIT BREAKDOWN');
   });
 });
