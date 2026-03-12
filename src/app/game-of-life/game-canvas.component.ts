@@ -41,7 +41,7 @@ export class GameCanvasComponent implements OnChanges, AfterViewInit {
   @Input() borderColor = '#1b2b40';
 
   @Output() cursorChange = new EventEmitter<{ x: number; y: number }>();
-  @Output() canvasEvent = new EventEmitter<{ type: 'down' | 'move' | 'up'; x: number; y: number }>();
+  @Output() canvasEvent = new EventEmitter<{ type: 'down' | 'move' | 'up'; x: number; y: number; button: number }>();
   @Output() zoomChange = new EventEmitter<{ deltaY: number; screenX: number; screenY: number; width: number; height: number }>();
   @Output() panChange = new EventEmitter<{ deltaX: number; deltaY: number }>();
 
@@ -49,6 +49,7 @@ export class GameCanvasComponent implements OnChanges, AfterViewInit {
 
   private resizeObserver?: ResizeObserver;
   private isPointerDown = false;
+  private activeMouseButton = 0;
   private isPanning = false;
   private isPinching = false;
   private lastHoverCell: { x: number; y: number } | null = null;
@@ -103,9 +104,13 @@ export class GameCanvasComponent implements OnChanges, AfterViewInit {
       return;
     }
     this.isPointerDown = true;
+    this.activeMouseButton = typeof event.button === 'number' ? event.button : 0;
+    if (this.activeMouseButton === 2) {
+      event.preventDefault();
+    }
     const pos = this.getCellFromEvent(event);
     this.lastHoverCell = pos;
-    if (pos) this.canvasEvent.emit({ type: 'down', ...pos });
+    if (pos) this.canvasEvent.emit({ type: 'down', button: this.activeMouseButton, ...pos });
   }
 
   @HostListener('touchstart', ['$event'])
@@ -120,11 +125,12 @@ export class GameCanvasComponent implements OnChanges, AfterViewInit {
     if (!touch) return;
     event.preventDefault();
     this.isPointerDown = true;
+    this.activeMouseButton = 0;
     const pos = this.getCellFromClient(touch.clientX, touch.clientY);
     this.lastHoverCell = pos;
     if (!pos) return;
     this.cursorChange.emit({ x: pos.x, y: pos.y });
-    this.canvasEvent.emit({ type: 'down', ...pos });
+    this.canvasEvent.emit({ type: 'down', button: this.activeMouseButton, ...pos });
   }
 
   @HostListener('mouseup', ['$event'])
@@ -167,8 +173,9 @@ export class GameCanvasComponent implements OnChanges, AfterViewInit {
     if (!this.isPointerDown) return;
     this.isPointerDown = false;
     if (this.lastHoverCell) {
-      this.canvasEvent.emit({ type: 'up', ...this.lastHoverCell });
+      this.canvasEvent.emit({ type: 'up', button: this.activeMouseButton, ...this.lastHoverCell });
     }
+    this.activeMouseButton = 0;
   }
 
   @HostListener('mousemove', ['$event'])
@@ -193,7 +200,10 @@ export class GameCanvasComponent implements OnChanges, AfterViewInit {
     this.lastHoverCell = pos;
     this.cursorChange.emit({ x: pos.x, y: pos.y });
     if (this.isPointerDown) {
-      this.canvasEvent.emit({ type: 'move', ...pos });
+      if (this.activeMouseButton === 2) {
+        event.preventDefault();
+      }
+      this.canvasEvent.emit({ type: 'move', button: this.activeMouseButton, ...pos });
     }
   }
 
@@ -212,7 +222,7 @@ export class GameCanvasComponent implements OnChanges, AfterViewInit {
     this.lastHoverCell = pos;
     this.cursorChange.emit({ x: pos.x, y: pos.y });
     if (this.isPointerDown) {
-      this.canvasEvent.emit({ type: 'move', ...pos });
+      this.canvasEvent.emit({ type: 'move', button: this.activeMouseButton, ...pos });
     }
   }
 
@@ -282,8 +292,12 @@ export class GameCanvasComponent implements OnChanges, AfterViewInit {
     const inside = event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
     const pos = inside ? this.getCellFromEvent(event) : this.lastHoverCell;
 
+    if (this.activeMouseButton === 2) {
+      event.preventDefault();
+    }
     this.isPointerDown = false;
-    if (pos) this.canvasEvent.emit({ type: 'up', ...pos });
+    if (pos) this.canvasEvent.emit({ type: 'up', button: this.activeMouseButton, ...pos });
+    this.activeMouseButton = 0;
   }
 
   private handleTouchUp(event: TouchEvent) {
@@ -301,8 +315,9 @@ export class GameCanvasComponent implements OnChanges, AfterViewInit {
     const pos = touch ? this.getCellFromClient(touch.clientX, touch.clientY) : this.lastHoverCell;
     this.isPointerDown = false;
     if (pos) {
-      this.canvasEvent.emit({ type: 'up', ...pos });
+      this.canvasEvent.emit({ type: 'up', button: this.activeMouseButton, ...pos });
     }
+    this.activeMouseButton = 0;
   }
 
   private getPrimaryTouch(event: TouchEvent): Touch | null {
@@ -318,9 +333,10 @@ export class GameCanvasComponent implements OnChanges, AfterViewInit {
   private beginPinchGesture(event: TouchEvent) {
     if (!event.touches || event.touches.length < 2) return;
     if (this.isPointerDown && this.lastHoverCell) {
-      this.canvasEvent.emit({ type: 'up', ...this.lastHoverCell });
+      this.canvasEvent.emit({ type: 'up', button: this.activeMouseButton, ...this.lastHoverCell });
     }
     this.isPointerDown = false;
+    this.activeMouseButton = 0;
     this.isPanning = false;
     this.lastPanPointer = null;
     this.isPinching = true;
@@ -398,7 +414,7 @@ export class GameCanvasComponent implements OnChanges, AfterViewInit {
   }
 
   private shouldStartPan(event: MouseEvent) {
-    return event.button === 1 || event.button === 2 || event.shiftKey;
+    return event.button === 1 || (event.button === 0 && event.shiftKey);
   }
 
   private resizeCanvas() {

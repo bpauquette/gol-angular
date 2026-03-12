@@ -46,25 +46,36 @@ describe('GameOfLifeComponent toggle tool behavior', () => {
     return { component, runtime, model };
   }
 
-  it('toggles exactly once for a simple click (down + up)', () => {
+  it('sets a clicked cell alive on left click', () => {
     const { component, runtime, model } = createComponent();
 
-    component.onCanvasEvent({ type: 'down', x: 5, y: 5 });
-    component.onCanvasEvent({ type: 'up', x: 5, y: 5 });
+    component.onCanvasEvent({ type: 'down', x: 5, y: 5, button: 0 });
+    component.onCanvasEvent({ type: 'up', x: 5, y: 5, button: 0 });
 
-    expect(model.toggleCell).toHaveBeenCalledTimes(1);
-    expect(model.toggleCell).toHaveBeenCalledWith(5, 5);
+    expect(model.setCellAlive).toHaveBeenCalledTimes(1);
+    expect(model.setCellAlive).toHaveBeenCalledWith(5, 5, true);
     expect(runtime.syncIntoRunLoop).toHaveBeenCalledTimes(1);
   });
 
-  it('does not double-toggle when move event reports the same cell', () => {
+  it('does not repaint the same cell when move event reports the same cell', () => {
     const { component, model } = createComponent();
 
-    component.onCanvasEvent({ type: 'down', x: 7, y: 7 });
-    component.onCanvasEvent({ type: 'move', x: 7, y: 7 });
-    component.onCanvasEvent({ type: 'up', x: 7, y: 7 });
+    component.onCanvasEvent({ type: 'down', x: 7, y: 7, button: 0 });
+    component.onCanvasEvent({ type: 'move', x: 7, y: 7, button: 0 });
+    component.onCanvasEvent({ type: 'up', x: 7, y: 7, button: 0 });
 
-    expect(model.toggleCell).toHaveBeenCalledTimes(1);
-    expect(model.toggleCell).toHaveBeenCalledWith(7, 7);
+    expect(model.setCellAlive).toHaveBeenCalledTimes(1);
+    expect(model.setCellAlive).toHaveBeenCalledWith(7, 7, true);
+  });
+
+  it('uses right click to set cells dead with the left-most toggle tool', () => {
+    const { component, model } = createComponent();
+
+    component.onCanvasEvent({ type: 'down', x: 6, y: 1, button: 2 });
+    component.onCanvasEvent({ type: 'move', x: 7, y: 1, button: 2 });
+    component.onCanvasEvent({ type: 'up', x: 7, y: 1, button: 2 });
+
+    expect(model.setCellAlive).toHaveBeenCalledWith(6, 1, false);
+    expect(model.setCellAlive).toHaveBeenCalledWith(7, 1, false);
   });
 });

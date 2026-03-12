@@ -263,27 +263,29 @@ export class GameOfLifeComponent implements OnInit, OnDestroy {
   showPrivacyPolicyDialog = false;
   showReleaseNotesDialog = false;
   readonly releaseNotesText = `RELEASE NOTES
-Release Tag: gol-angular/v1.0.5
-Compared To: v1.0.4
-Release Date: February 22, 2026
+Release Tag: gol-angular/v1.0.6
+Compared To: v1.0.5
+Release Date: March 11, 2026
 
 COMMIT-BY-COMMIT BREAKDOWN
 
-- [policy-accuracy] Added explicit Published metadata and corrected privacy-policy security wording to match backend behavior.
-- [support-contact] Updated privacy-policy support contact to use relative in-app URLs for support request (/requestsupport) and support purchase (/support).
-- [release-docs] Updated release-note metadata for the v1.0.5 support/contact patch.
+- [toggle-direction] Updated the left-most toggle tool so left click paints cells alive and right click paints cells dead.
+- [angular-input] Routed mouse button state through the canvas event payload so the toggle tool can distinguish left and right clicks during drags.
+- [pan-conflict] Removed Angular's right-click-to-pan shortcut so right click no longer enters the grab-hand pan mode and block this tool behavior.
+- [release-docs] Updated release-note metadata for the v1.0.6 toggle-direction patch.
 
 WHAT CHANGED SINCE THE LAST RELEASE
 
-- Privacy Policy now includes explicit Published metadata and revised security wording aligned with backend implementation.
-- Privacy/support contact now uses relative in-app URL routing (/requestsupport and /support).
-- Release metadata advanced to gol-angular/v1.0.5.
+- The left-most toggle tool now works as directional paint: left click makes a cell alive and right click makes it dead.
+- Angular no longer hijacks right click to start panning, so the grab-hand behavior does not interfere with editing.
+- The second draw tool remains a standard draw tool and was not changed into a right-click erase tool.
+- Release metadata advanced to gol-angular/v1.0.6.
 
 GITHUB TAG TRACKING
 
 - Releases are tracked with Git tags.
 - Tag format: gol-angular/vMAJOR.MINOR.PATCH
-- Compare releases in GitHub by tag range (for example, v1.0.4...v1.0.5).`;
+- Compare releases in GitHub by tag range (for example, v1.0.5...v1.0.6).`;
   readonly privacyPolicyText = `PRIVACY POLICY
 Published: February 22, 2026
 Last Updated: February 22, 2026
@@ -1273,10 +1275,16 @@ This privacy policy was published on February 22, 2026, is effective as of Febru
   }
 
   openShapePalette() {
+    const useCompactDialog = typeof window !== 'undefined'
+      ? window.matchMedia('(max-width: 900px)').matches
+      : this.isCompactViewport;
     const dialogRef = this.dialog.open(ShapePaletteDialogComponent, {
       data: { recentShapes: this.recentShapes },
-      width: '1100px',
-      maxWidth: '96vw'
+      width: useCompactDialog ? '100vw' : '1100px',
+      maxWidth: '100vw',
+      height: useCompactDialog ? '100dvh' : undefined,
+      maxHeight: '100dvh',
+      autoFocus: false
     });
     dialogRef.componentInstance.selectShape.subscribe((shape) => {
       this.selectShape(shape);
@@ -2365,10 +2373,12 @@ This privacy policy was published on February 22, 2026, is effective as of Febru
     this.closeAccountDialog();
   }
 
-  onCanvasEvent(evt: { type: 'down' | 'move' | 'up'; x: number; y: number }) {
+  onCanvasEvent(evt: { type: 'down' | 'move' | 'up'; x: number; y: number; button?: number }) {
     if (!evt) return;
     if (this.scriptRunning) return;
     if (this.isIphoneMitigation) this.markInteraction();
+    const isLeftButton = (evt.button ?? 0) === 0;
+    const clickAlive = (evt.button ?? 0) !== 2;
     if (evt.type === 'down') {
       this.isPointerDown = true;
       this.toolState.start = { x: evt.x, y: evt.y };
@@ -2377,7 +2387,7 @@ This privacy policy was published on February 22, 2026, is effective as of Febru
         this.model.setCellAlive(evt.x, evt.y, true);
         this.syncCells();
       } else if (this.selectedTool === 'toggle') {
-        this.model.toggleCell(evt.x, evt.y);
+        this.model.setCellAlive(evt.x, evt.y, clickAlive);
         this.syncCells();
       } else if (this.selectedTool === 'shapes' && this.selectedShape?.cells?.length) {
         this.shapeCrosshair = { x: evt.x, y: evt.y, color: 'rgba(90,180,255,0.85)' };
@@ -2399,8 +2409,8 @@ This privacy policy was published on February 22, 2026, is effective as of Febru
         const lastX = this.toolState.last?.x ?? evt.x;
         const lastY = this.toolState.last?.y ?? evt.y;
         const pts = computeLine(lastX, lastY, evt.x, evt.y);
-        const ptsToToggle = pts.length > 1 ? pts.slice(1) : [];
-        for (const [px, py] of ptsToToggle) this.model.toggleCell(px, py);
+        const ptsToPaint = pts.length > 1 ? pts.slice(1) : [];
+        for (const [px, py] of ptsToPaint) this.model.setCellAlive(px, py, clickAlive);
         this.toolState.last = { x: evt.x, y: evt.y };
         this.syncCells();
       } else if (this.selectedTool === 'erase') {
