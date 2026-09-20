@@ -1,0 +1,32 @@
+# Angular Game of Life routes. Owned by the gol-angular project.
+{$CADDY_ANGULAR_DOMAIN} {
+	encode gzip
+	header {
+		X-Frame-Options "DENY"
+		Content-Security-Policy "frame-ancestors 'none';"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+	handle_path /api/* {
+		uri strip_prefix /api
+		reverse_proxy gol-backend:55000
+	}
+	@support path /support*
+	handle @support { reverse_proxy gol-backend:55000 }
+	handle { reverse_proxy gol-angular-frontend:80 }
+	log { output stdout
+		format json }
+	tls {$CADDY_EMAIL}
+}
+
+angular-blue.localhost {
+	handle_path /api/* { uri strip_prefix /api
+		reverse_proxy gol-backend-blue:55000 }
+	handle { reverse_proxy gol-angular-frontend-blue:80 }
+	tls internal
+}
+angular-green.localhost {
+	handle_path /api/* { uri strip_prefix /api
+		reverse_proxy gol-backend-green:55000 }
+	handle { reverse_proxy gol-angular-frontend-green:80 }
+	tls internal
+}
