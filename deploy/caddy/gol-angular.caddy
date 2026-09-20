@@ -21,12 +21,16 @@
 angular-blue.localhost {
 	handle_path /api/* { uri strip_prefix /api
 		reverse_proxy gol-backend-blue:55000 }
+	@support path /support*
+	handle @support { reverse_proxy gol-backend-blue:55000 }
 	handle { reverse_proxy gol-angular-frontend-blue:80 }
 	tls internal
 }
 angular-green.localhost {
 	handle_path /api/* { uri strip_prefix /api
 		reverse_proxy gol-backend-green:55000 }
+	@support path /support*
+	handle @support { reverse_proxy gol-backend-green:55000 }
 	handle { reverse_proxy gol-angular-frontend-green:80 }
 	tls internal
 }
